@@ -1,0 +1,26 @@
+# Virtual Environment
+.venv/
+
+# Environment Variables
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Uploaded Documents
+uploads/
+
+# Local Vector Database
+qdrant_storage/
