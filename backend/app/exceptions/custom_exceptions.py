@@ -43,3 +43,11 @@ class DocumentNotFoundException(AIResearchAssistantException):
     """
 
     pass
+
+
+class InvalidDocumentTypeException(AIResearchAssistantException):
+    def __init__(self):
+        super().__init__(
+            message="Only PDF files are allowed.",
+           
+        )
