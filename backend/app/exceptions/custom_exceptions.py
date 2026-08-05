@@ -51,3 +51,14 @@ class InvalidDocumentTypeException(AIResearchAssistantException):
             message="Only PDF files are allowed.",
            
         )
+
+class DuplicateDocumentException(AIResearchAssistantException):
+    """
+    Raised when a document with the same name
+    already exists.
+    """
+
+    def __init__(self):
+        super().__init__(
+            "A document with this filename already exists."
+        )
