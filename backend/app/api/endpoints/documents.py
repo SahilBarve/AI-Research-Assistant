@@ -1,14 +1,12 @@
+# Standard Library
 import shutil    
-from fastapi import APIRouter, File, UploadFile
 from pathlib import Path
-from app.services.pdf_processor import PDFProcessor
-from app.exceptions.custom_exceptions import InvalidDocumentTypeException
+# Third-party
+from fastapi import APIRouter, File, UploadFile
+# Local application
+from backend.app.services.document_processor.pdf_processors import PDFProcessor
 from app.core.config import get_settings
 from app.schemas.document import DocumentUploadResponse
-from app.exceptions.custom_exceptions import (
-    InvalidDocumentTypeException,
-    DocumentTooLargeException,
-)
 from app.exceptions.custom_exceptions import (
     InvalidDocumentTypeException,
     DocumentTooLargeException,
@@ -19,13 +17,16 @@ router = APIRouter(
     prefix="/documents",
     tags=["Documents"] #Without tags, Swagger shows a long flat list of endpoints.
 )
-
+# Configuration
 settings = get_settings()
-
+# Services
 pdf_processor = PDFProcessor()
+
+# Constants
 MAX_FILE_SIZE = settings.max_upload_size_mb * 1024 * 1024
 ALLOWED_EXTENSIONS = {".pdf"}
 MAX_FILENAME_LENGTH = 100
+
 @router.post( #This creates: POST /documents/upload and tells FastAPI:"The response will follow the DocumentUploadResponse schema."
     "/upload",
     response_model=DocumentUploadResponse
@@ -68,10 +69,16 @@ async def upload_document(
 
     extracted_text = pdf_processor.extract_text(str(file_path))
 
+    cleaned_text = pdf_processor.clean_text(extracted_text)
+
+    print("\n========== Cleaned Text ==========\n")
+    print(cleaned_text)
+    print("\n=================================\n")
+    
     print("\n========== Extracted Text ==========\n")
     print(extracted_text)
     print("\n===================================\n")
-    
+
     return DocumentUploadResponse(
         message="Document uploaded successfully.",
         filename=file.filename

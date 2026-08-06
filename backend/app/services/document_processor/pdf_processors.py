@@ -5,7 +5,7 @@ Responsible for extracting text from PDF documents.
 """
 
 import fitz
-
+import re
 
 class PDFProcessor:
     """
@@ -36,3 +36,17 @@ class PDFProcessor:
             document.close()
 
         return text
+
+    def clean_text(self, text: str) -> str:
+      """
+      Clean extracted PDF text.
+      """
+
+      # Replace multiple whitespace characters with a single space
+      text = re.sub(r"\s+", " ", text)
+
+      # Remove leading and trailing whitespace
+      text = text.strip()
+
+      return text
+
