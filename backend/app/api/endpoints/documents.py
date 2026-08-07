@@ -14,6 +14,7 @@ from app.services.document_processors.pdf_processors import PDFProcessor
 from app.repositories.document_repository import DocumentRepository
 
 from app.services.document_service import DocumentService
+from app.services.chunkers.character_chunker import TextChunker
 
 from app.exceptions.custom_exceptions import (
     InvalidDocumentTypeException,
@@ -39,10 +40,14 @@ pdf_processor = PDFProcessor()
 
 document_repository = DocumentRepository()
 
+text_chunker = TextChunker()
+
 document_service = DocumentService(
     repository=document_repository,
     processor=pdf_processor,
+    chunker=text_chunker,
 )
+
 
 # ----------------------------------------------------
 # Constants
@@ -94,7 +99,21 @@ async def upload_document(
 
     file_path = document_service.save_uploaded_file(file)
 
-    document_service.extract_and_clean_text(file_path)
+    cleaned_text = document_service.extract_and_clean_text(file_path)
+
+    chunks = document_service.chunk_text(
+    cleaned_text,
+    file.filename
+    )
+   
+    print("\n========== CHUNKS ==========\n")
+
+    for i, chunk in enumerate(chunks, start=1):
+        print(f"\nChunk {i}\n")
+        print(chunk.model_dump())
+
+
+    print("\n============================\n")
 
     # ----------------------------------------
     # Response
@@ -104,3 +123,19 @@ async def upload_document(
         message="Document uploaded successfully.",
         filename=file.filename,
     )
+    print("1")
+    document_service.check_duplicate(file.filename)
+
+    print("2")
+    file_path = document_service.save_uploaded_file(file)
+
+    print("3")
+    cleaned_text = document_service.extract_and_clean_text(file_path)
+
+    print("4")
+    chunks = document_service.chunk_text(
+        cleaned_text,
+        file.filename
+    )
+
+    print("5")

@@ -4,7 +4,7 @@ from fastapi import UploadFile
 
 from app.repositories.document_repository import DocumentRepository
 from app.services.document_processors.pdf_processors import PDFProcessor
-
+from app.services.chunkers.character_chunker import TextChunker
 
 class DocumentService:
     """
@@ -18,9 +18,11 @@ class DocumentService:
         self,
         repository: DocumentRepository,
         processor: PDFProcessor,
+        chunker: TextChunker,
     ):
         self.repository = repository
         self.processor = processor
+        self.chunker = chunker
 
     def check_duplicate(self, filename: str):
         """
@@ -58,3 +60,16 @@ class DocumentService:
         print("\n===================================\n")
 
         return cleaned_text
+
+    def chunk_text(
+    self,
+    cleaned_text: str,
+    filename: str,
+    ):
+        """
+        Split cleaned text into chunks and attach document metadata.
+        """
+        return self.chunker.chunk_text(
+            cleaned_text,
+            filename,
+        )
