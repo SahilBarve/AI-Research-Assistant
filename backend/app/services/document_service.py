@@ -1,10 +1,14 @@
 import shutil
 from pathlib import Path
+
 from fastapi import UploadFile
 
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.vector_repository import VectorRepository
 from app.services.document_processors.pdf_processors import PDFProcessor
 from app.services.chunkers.character_chunker import TextChunker
+from app.services.embeddings.embedding_service import EmbeddingService
+
 
 class DocumentService:
     """
@@ -19,17 +23,24 @@ class DocumentService:
         repository: DocumentRepository,
         processor: PDFProcessor,
         chunker: TextChunker,
+        embedding_service: EmbeddingService,
+        vector_repository: VectorRepository,
     ):
         self.repository = repository
         self.processor = processor
         self.chunker = chunker
+        self.embedding_service = embedding_service
+        self.vector_repository = vector_repository
 
     def check_duplicate(self, filename: str):
         """
-        Raise an exception if a document with the given filename already exists.
+        Raise an exception if the document already exists.
         """
         if self.repository.exists(filename):
-            from app.exceptions.custom_exceptions import DuplicateDocumentException
+            from app.exceptions.custom_exceptions import (
+                DuplicateDocumentException,
+            )
+
             raise DuplicateDocumentException()
 
     def save_uploaded_file(self, file: UploadFile) -> Path:
@@ -47,29 +58,48 @@ class DocumentService:
         """
         Extract and clean text from the uploaded PDF.
         """
-        extracted_text = self.processor.extract_text(str(file_path))
+        extracted_text = self.processor.extract_text(
+            str(file_path)
+        )
 
-        cleaned_text = self.processor.clean_text(extracted_text)
-
-        print("\n========== Cleaned Text ==========\n")
-        print(cleaned_text)
-        print("\n=================================\n")
-
-        print("\n========== Extracted Text ==========\n")
-        print(extracted_text)
-        print("\n===================================\n")
+        cleaned_text = self.processor.clean_text(
+            extracted_text
+        )
 
         return cleaned_text
 
     def chunk_text(
-    self,
-    cleaned_text: str,
-    filename: str,
+        self,
+        cleaned_text: str,
+        filename: str,
     ):
         """
-        Split cleaned text into chunks and attach document metadata.
+        Split cleaned text into chunks and attach metadata.
         """
         return self.chunker.chunk_text(
             cleaned_text,
             filename,
+        )
+
+    def embed_chunks(self, chunks):
+        """
+        Generate embeddings for all document chunks.
+        """
+        texts = [chunk.text for chunk in chunks]
+
+        return self.embedding_service.embed_documents(
+            texts
+        )
+
+    def store_chunks(
+        self,
+        chunks,
+        embeddings,
+    ):
+        """
+        Store chunks and their embeddings in Qdrant.
+        """
+        self.vector_repository.store_chunks(
+            chunks,
+            embeddings,
         )

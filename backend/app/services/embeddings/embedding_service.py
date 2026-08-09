@@ -1,39 +1,42 @@
-"""
-Embedding generation service.
-"""
+from typing import List
 
 from sentence_transformers import SentenceTransformer
-
-from app.core.config import get_settings
 
 
 class EmbeddingService:
     """
-    Generates embeddings for text.
+    Generates vector embeddings for text using a local
+    SentenceTransformer model.
     """
 
     def __init__(self):
-        settings = get_settings()
-
         self.model = SentenceTransformer(
-            settings.embedding_model
+            "BAAI/bge-small-en-v1.5"
         )
 
-    def generate_embedding(self, text: str) -> list[float]:
+    def embed_text(self, text: str) -> List[float]:
         """
-        Generate embedding for a single text.
+        Convert a single text string into an embedding vector.
         """
-        embedding = self.model.encode(text)
+
+        embedding = self.model.encode(
+            text,
+            normalize_embeddings=True,
+        )
 
         return embedding.tolist()
 
-    def generate_embeddings(
+    def embed_documents(
         self,
-        texts: list[str]
-    ) -> list[list[float]]:
+        texts: List[str],
+    ) -> List[List[float]]:
         """
-        Generate embeddings for multiple texts.
+        Generate embeddings for multiple text chunks.
         """
-        embeddings = self.model.encode(texts)
+
+        embeddings = self.model.encode(
+            texts,
+            normalize_embeddings=True, # This normalize our vector so that the magnitude is 1
+        )
 
         return embeddings.tolist()
