@@ -18,8 +18,6 @@ class VectorRepository:
     """
 
     COLLECTION_NAME = "document_chunks"
-
-    # BAAI/bge-small-en-v1.5 produces 384-dimensional vectors.
     VECTOR_SIZE = 384
 
     def __init__(
@@ -38,7 +36,7 @@ class VectorRepository:
 
     def health_check(self):
         """
-        Verify that the application can communicate with Qdrant.
+        Verify communication with Qdrant.
         """
         return self.client.get_collections()
 
@@ -48,8 +46,7 @@ class VectorRepository:
 
     def create_collection(self):
         """
-        Create the document chunk collection if it
-        does not already exist.
+        Create the document collection if it doesn't exist.
         """
 
         if self.client.collection_exists(
@@ -84,10 +81,9 @@ class VectorRepository:
         embeddings: list[list[float]],
     ):
         """
-        Store document chunks and their embeddings in Qdrant.
+        Store document chunks and embeddings in Qdrant.
         """
 
-        # Every chunk must have exactly one embedding.
         if len(chunks) != len(embeddings):
             raise ValueError(
                 "Number of chunks must match "
@@ -101,7 +97,6 @@ class VectorRepository:
             embeddings,
         ):
 
-            # Generate a globally unique ID for the Qdrant point.
             point_id = str(uuid4())
 
             point = PointStruct(
@@ -116,7 +111,6 @@ class VectorRepository:
 
             points.append(point)
 
-        # Insert or update the points in Qdrant.
         self.client.upsert(
             collection_name=self.COLLECTION_NAME,
             points=points,
@@ -125,6 +119,29 @@ class VectorRepository:
         print(
             f"Stored {len(points)} chunks in Qdrant."
         )
+
+    # ----------------------------------------------------
+    # Semantic Search
+    # ----------------------------------------------------
+
+    def search(
+        self,
+        query_vector: list[float],
+        limit: int = 5,
+    ):
+        """
+        Search Qdrant for the most semantically
+        similar document chunks.
+        """
+
+        results = self.client.query_points(
+            collection_name=self.COLLECTION_NAME,
+            query=query_vector,
+            limit=limit,
+            with_payload=True,
+        )
+
+        return results.points
 
     # ----------------------------------------------------
     # Retrieve Stored Points
@@ -137,7 +154,7 @@ class VectorRepository:
         """
         Retrieve stored points from Qdrant.
 
-        Used mainly for development and verification.
+        Used for development and verification.
         """
 
         points, next_page = self.client.scroll(
@@ -155,7 +172,7 @@ class VectorRepository:
 
     def delete_all_points(self):
         """
-        Delete all points from the document collection.
+        Delete all points from the collection.
 
         Used during development to remove test data.
         """
@@ -170,4 +187,3 @@ class VectorRepository:
         print(
             "All points deleted from Qdrant."
         )
-        
