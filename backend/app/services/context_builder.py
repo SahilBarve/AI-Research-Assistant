@@ -1,18 +1,24 @@
 """
 Context Builder Service.
 
-Converts retrieved document chunks into a structured
+Converts reranked document chunks into a structured
 context string that can be provided to the LLM.
 """
 
-from typing import List
-
-from app.schemas.chunk import DocumentChunk
+from typing import List, Dict
 
 
 class ContextBuilder:
     """
-    Builds clean LLM-ready context from retrieved chunks.
+    Builds clean LLM-ready context from reranked chunks.
+
+    Expected input format:
+
+        {
+            "chunk": DocumentChunk,
+            "rrf_score": float,
+            "reranker_score": float
+        }
     """
 
     def __init__(
@@ -25,9 +31,6 @@ class ContextBuilder:
         max_context_chars:
             Maximum number of characters allowed in the
             final context.
-
-            This prevents us from sending an unnecessarily
-            large amount of information to the LLM.
         """
 
         self.max_context_chars = max_context_chars
@@ -38,30 +41,29 @@ class ContextBuilder:
 
     def build_context(
         self,
-        chunks: List[DocumentChunk],
+        results: List[Dict],
     ) -> str:
         """
-        Convert retrieved chunks into a structured
-        context string.
+        Convert reranked results into structured
+        LLM-ready context.
 
-        Each chunk contains:
-
-            - chunk_id
-            - text
-            - source
-
-        The resulting context contains this metadata
-        along with the actual chunk text.
+        The results should already be ordered by
+        reranker relevance.
         """
 
-        if not chunks:
+        if not results:
             return ""
 
         context_parts = []
-
         current_length = 0
 
-        for chunk in chunks:
+        # =================================================
+        # PROCESS RERANKED RESULTS
+        # =================================================
+
+        for result in results:
+
+            chunk = result["chunk"]
 
             # -------------------------------------------------
             # Format one chunk
@@ -86,7 +88,7 @@ class ContextBuilder:
                 break
 
             # -------------------------------------------------
-            # Add chunk to context
+            # Add chunk
             # -------------------------------------------------
 
             context_parts.append(
@@ -97,9 +99,9 @@ class ContextBuilder:
                 formatted_chunk
             )
 
-        # -----------------------------------------------------
-        # Separate chunks clearly
-        # -----------------------------------------------------
+        # =================================================
+        # JOIN CHUNKS
+        # =================================================
 
         return "\n---\n".join(
             context_parts
