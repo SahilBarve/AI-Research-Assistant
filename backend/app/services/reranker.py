@@ -5,16 +5,17 @@ from sentence_transformers import CrossEncoder
 
 class RerankerService:
     """
-    Reranks retrieved document chunks using a
-    Cross-Encoder model.
+    Reranks retrieved document chunks using a Cross-Encoder.
 
-    Unlike embedding models, which encode the query
-    and document separately, a Cross-Encoder receives
-    the query and document together and directly
-    predicts their relevance.
+    The Cross-Encoder receives the query and document together
+    and predicts their semantic relevance.
+
+    RRF and reranker scores are preserved so that different
+    ranking strategies can be evaluated independently.
     """
 
     def __init__(self):
+
         self.model = CrossEncoder(
             "cross-encoder/ms-marco-MiniLM-L-6-v2"
         )
@@ -25,32 +26,18 @@ class RerankerService:
         results: List[Dict],
         limit: int = 5,
     ) -> List[Dict]:
-        """
-        Rerank retrieved chunks according to their
-        relevance to the query.
-
-        Parameters
-        ----------
-        query:
-            User's search query.
-
-        results:
-            Retrieved chunks from the hybrid retriever.
-
-        limit:
-            Number of final chunks to return.
-        """
 
         if not results:
             return []
 
-        # -------------------------------------------------
-        # Create query-document pairs
-        # -------------------------------------------------
+        # =================================================
+        # CREATE QUERY-DOCUMENT PAIRS
+        # =================================================
 
         pairs = []
 
         for result in results:
+
             chunk = result["chunk"]
 
             pairs.append(
@@ -60,15 +47,15 @@ class RerankerService:
                 )
             )
 
-        # -------------------------------------------------
-        # Calculate relevance scores
-        # -------------------------------------------------
+        # =================================================
+        # CALCULATE CROSS-ENCODER SCORES
+        # =================================================
 
         scores = self.model.predict(pairs)
 
-        # -------------------------------------------------
-        # Attach reranking scores
-        # -------------------------------------------------
+        # =================================================
+        # ATTACH SCORES
+        # =================================================
 
         reranked_results = []
 
@@ -76,24 +63,40 @@ class RerankerService:
             results,
             scores,
         ):
+
+            rrf_score = result.get(
+                "score",
+                result.get(
+                    "rrf_score",
+                    0.0,
+                ),
+            )
+
             reranked_results.append(
                 {
                     "chunk": result["chunk"],
-                    "score": float(score),
+
+                    "rrf_score": float(
+                        rrf_score
+                    ),
+
+                    "reranker_score": float(
+                        score
+                    ),
                 }
             )
 
-        # -------------------------------------------------
-        # Sort by reranker score
-        # -------------------------------------------------
+        # =================================================
+        # SORT BY CROSS-ENCODER SCORE
+        # =================================================
 
         reranked_results.sort(
-            key=lambda item: item["score"],
+            key=lambda item: item["reranker_score"],
             reverse=True,
         )
 
-        # -------------------------------------------------
-        # Return top-k
-        # -------------------------------------------------
+        # =================================================
+        # RETURN TOP-K
+        # =================================================
 
         return reranked_results[:limit]

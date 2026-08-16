@@ -53,6 +53,35 @@ def calculate_recall(
     )
 
 
+def calculate_reciprocal_rank(
+    retrieved_ids: list[int],
+    relevant_ids: list[int],
+) -> float:
+    """
+    Calculate Reciprocal Rank.
+
+    Finds the rank of the first relevant
+    retrieved chunk.
+
+    Examples:
+
+        relevant at rank 1 -> 1.00
+        relevant at rank 2 -> 0.50
+        relevant at rank 5 -> 0.20
+        not found          -> 0.00
+    """
+
+    relevant_set = set(relevant_ids)
+
+    for rank, chunk_id in enumerate(
+        retrieved_ids,
+        start=1,
+    ):
+        if chunk_id in relevant_set:
+            return 1.0 / rank
+
+    return 0.0
+
 # ---------------------------------------------------------
 # Initialize services
 # ---------------------------------------------------------
@@ -133,7 +162,7 @@ for test_case in RETRIEVAL_DATASET:
 dense_recalls = []
 bm25_recalls = []
 hybrid_recalls = []
-
+hybrid_reciprocal_ranks = []
 for item in RETRIEVAL_DATASET:
 
     query = item["query"]
@@ -224,6 +253,7 @@ for item in RETRIEVAL_DATASET:
         hybrid_ids,
         relevant_chunks,
     )
+    
 
     hybrid_recalls.append(hybrid_recall)
 
@@ -235,6 +265,21 @@ for item in RETRIEVAL_DATASET:
         f"{hybrid_recall:.2f}"
     )
 
+    hybrid_rr = calculate_reciprocal_rank(
+    hybrid_ids,
+    relevant_chunks,
+    )
+
+    hybrid_reciprocal_ranks.append(
+        hybrid_rr
+    )
+
+    print(
+        f"Hybrid Reciprocal Rank: "
+        f"{hybrid_rr:.2f}"
+    )
+    
+    
     # -----------------------------------------------------
     # Relevant chunks found
     # -----------------------------------------------------
@@ -266,6 +311,11 @@ average_hybrid_recall = (
     sum(hybrid_recalls)
     / len(hybrid_recalls)
 )
+average_hybrid_mrr = (
+        sum(hybrid_reciprocal_ranks)
+        / len(hybrid_reciprocal_ranks)
+    )
+    
 
 print("\n========================================")
 print("FINAL RETRIEVAL METRICS")
@@ -286,6 +336,10 @@ print(
     f"{average_hybrid_recall:.2f}"
 )
 
+print(
+    f"Average Hybrid MRR: "
+    f"{average_hybrid_mrr:.2f}"
+)
 print("========================================")
 
 # ---------------------------------------------------------

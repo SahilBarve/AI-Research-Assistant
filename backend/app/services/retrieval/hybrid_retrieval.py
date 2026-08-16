@@ -51,10 +51,6 @@ class HybridRetriever:
         RRF:
 
             RRF(d) = Σ 1 / (k + rank)
-
-        RRF uses ranking positions rather than
-        raw scores because Dense and BM25 scores
-        are on different scales.
         """
 
         scores = {}
@@ -114,39 +110,28 @@ class HybridRetriever:
         return ranked_results
 
     # =========================================================
-    # HYBRID SEARCH + RERANKING
+    # RETRIEVAL ONLY
     # =========================================================
 
-    def search(
+    def retrieve(
         self,
         query: str,
-        limit: int = 5,
         retrieval_limit: int = 30,
-        rerank_limit: int = 20,
+        rrf_limit: int = 20,
     ):
         """
-        Perform hybrid retrieval followed by reranking.
+        Perform Dense + BM25 retrieval followed by RRF.
 
-        Parameters
-        ----------
-        query:
-            User's search query.
+        IMPORTANT:
+        This method stops BEFORE reranking.
 
-        limit:
-            Final number of chunks returned.
-
-        retrieval_limit:
-            Number of candidates retrieved from
-            Dense and BM25 independently.
-
-        rerank_limit:
-            Number of RRF candidates passed to
-            the Cross-Encoder reranker.
+        Returns:
+            Top RRF candidates.
         """
 
         # =====================================================
         # STEP 1
-        # Convert query into embedding
+        # Query embedding
         # =====================================================
 
         query_embedding = (
@@ -166,21 +151,6 @@ class HybridRetriever:
                 limit=retrieval_limit,
             )
         )
-
-        print("\nDense candidate IDs:")
-
-        for rank, point in enumerate(
-            dense_points,
-            start=1,
-        ):
-            chunk_id = point.payload["chunk_id"]
-            score = point.score
-
-            print(
-                f"Rank {rank}: "
-                f"Chunk {chunk_id} | "
-                f"Score {score:.4f}"
-            )
 
         dense_results = []
 
@@ -209,29 +179,9 @@ class HybridRetriever:
             )
         )
 
-        print(
-            "\nBM25 candidates:",
-            len(bm25_results),
-        )
-
-        print("\nBM25 candidate IDs:")
-
-        for rank, result in enumerate(
-            bm25_results,
-            start=1,
-        ):
-            chunk_id = result["chunk"].chunk_id
-            score = result["score"]
-
-            print(
-                f"Rank {rank}: "
-                f"Chunk {chunk_id} | "
-                f"Score {score:.4f}"
-            )
-
         # =====================================================
         # STEP 4
-        # RRF FUSION
+        # RRF
         # =====================================================
 
         fused_results = self._rrf_fusion(
@@ -239,39 +189,72 @@ class HybridRetriever:
             bm25_results=bm25_results,
         )
 
-        print(
-            "\nRRF candidates:",
-            len(fused_results),
-        )
-
-        # -----------------------------------------------------
-        # Keep only candidates that will be reranked.
-        # -----------------------------------------------------
-
-        rerank_candidates = fused_results[
-            :rerank_limit
-        ]
-
-        print(
-            "Candidates sent to reranker:",
-            len(rerank_candidates),
-        )
-
         # =====================================================
         # STEP 5
-        # CROSS-ENCODER RERANKING
+        # Return RRF results
         # =====================================================
+
+        return fused_results[:rrf_limit]
+
+    # =========================================================
+    # HYBRID SEARCH + RERANKING
+    # =========================================================
+
+    def search(
+        self,
+        query: str,
+        limit: int = 5,
+        retrieval_limit: int = 30,
+        rerank_limit: int = 20,
+    ):
+        """
+        Perform:
+
+            Dense
+              ↓
+            BM25
+              ↓
+            RRF
+              ↓
+            Cross-Encoder
+        """
+
+        # -----------------------------------------------------
+        # Get RRF candidates
+        # -----------------------------------------------------
+
+        rrf_results = self.retrieve(
+            query=query,
+            retrieval_limit=retrieval_limit,
+            rrf_limit=rerank_limit,
+        )
+
+        print(
+            "\nRRF candidates:",
+            len(rrf_results),
+        )
+
+        print("\nRRF Top-20:")
+
+        for rank, result in enumerate(
+            rrf_results,
+            start=1,
+        ):
+            print(
+                f"Rank {rank}: "
+                f"Chunk {result['chunk'].chunk_id} | "
+                f"RRF Score: {result['score']:.6f}"
+            )
+
+        # -----------------------------------------------------
+        # Rerank
+        # -----------------------------------------------------
 
         reranked_results = self.reranker.rerank(
             query=query,
-            results=rerank_candidates,
+            results=rrf_results,
             limit=limit,
         )
-
-        # =====================================================
-        # STEP 6
-        # Return final Top-K
-        # =====================================================
 
         return reranked_results
 
