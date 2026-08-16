@@ -21,7 +21,7 @@ router = APIRouter(
 def chat(request: ChatRequest):
 
     # =====================================================
-    # STEP 1: GET SERVICES
+    # STEP 1: GET SHARED SERVICES
     # =====================================================
 
     hybrid_retriever = get_hybrid_retriever()
@@ -29,7 +29,7 @@ def chat(request: ChatRequest):
     llm_service = get_llm_service()
 
     # =====================================================
-    # STEP 2: RETRIEVE RELEVANT CHUNKS
+    # STEP 2: RETRIEVE RELEVANT DOCUMENT CHUNKS
     # =====================================================
 
     retrieved_results = hybrid_retriever.search(
@@ -40,7 +40,7 @@ def chat(request: ChatRequest):
     )
 
     # =====================================================
-    # STEP 3: BUILD LLM CONTEXT
+    # STEP 3: BUILD CONTEXT FOR THE LLM
     # =====================================================
 
     context = context_builder.build_context(
