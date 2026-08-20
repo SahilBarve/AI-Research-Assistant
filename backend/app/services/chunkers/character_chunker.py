@@ -8,28 +8,14 @@ from app.schemas.chunk import DocumentChunk
 
 class TextChunker:
     """
-    Splits extracted document text into overlapping chunks.
-
-    RecursiveCharacterTextSplitter tries to preserve natural
-    text boundaries before falling back to smaller separators.
+    Splits PDF pages into overlapping chunks while
+    preserving page-level metadata.
     """
 
     def __init__(self):
 
-        # Load application configuration.
         settings = get_settings()
 
-        # Create the recursive text splitter.
-        #
-        # The splitter tries separators from top to bottom.
-        #
-        # 1. Paragraph
-        # 2. Line
-        # 3. Sentence
-        # 4. Word
-        # 5. Character
-        #
-        # This gives larger semantic units priority.
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.chunk_size,
             chunk_overlap=settings.chunk_overlap,
@@ -43,48 +29,82 @@ class TextChunker:
         )
 
     # ====================================================
-    # CHUNK TEXT
+    # CHUNK PAGES
     # ====================================================
 
-    def chunk_text(
+    def chunk_pages(
         self,
-        text: str,
+        pages: list[dict],
         source: str,
     ) -> List[DocumentChunk]:
         """
-        Split document text into overlapping chunks.
+        Split PDF pages into chunks while preserving
+        the page number for every chunk.
 
         Parameters
         ----------
-        text:
-            Cleaned text extracted from the document.
+        pages:
+            List of dictionaries containing:
+
+                {
+                    "page_number": 1,
+                    "text": "..."
+                }
 
         source:
-            Original document filename.
+            Original PDF filename.
 
         Returns
         -------
         List[DocumentChunk]
-            Chunks containing text and metadata.
+            Page-aware document chunks.
         """
-
-        # Let LangChain perform the actual recursive splitting.
-        raw_chunks = self.text_splitter.split_text(
-            text
-        )
 
         chunks = []
 
-        # Convert each raw text chunk into our application's
-        # DocumentChunk schema.
-        for index, chunk in enumerate(raw_chunks):
+        chunk_id = 0
 
-            chunks.append(
-                DocumentChunk(
-                    chunk_id=index,
-                    text=chunk,
-                    source=source,
-                )
+        # =================================================
+        # PROCESS EACH PAGE
+        # =================================================
+
+        for page in pages:
+
+            page_number = page["page_number"]
+            page_text = page["text"]
+
+            # -------------------------------------------------
+            # Clean page text
+            # -------------------------------------------------
+
+            page_text = page_text.strip()
+
+            if not page_text:
+                continue
+
+            # -------------------------------------------------
+            # Split this page into chunks
+            # -------------------------------------------------
+
+            raw_chunks = self.text_splitter.split_text(
+                page_text
             )
+
+            # -------------------------------------------------
+            # Convert chunks into DocumentChunk objects
+            # -------------------------------------------------
+
+            for chunk_text in raw_chunks:
+
+                chunks.append(
+                    DocumentChunk(
+                        chunk_id=chunk_id,
+                        text=chunk_text,
+                        source=source,
+                        page_number=page_number,
+                    )
+                )
+
+                chunk_id += 1
 
         return chunks

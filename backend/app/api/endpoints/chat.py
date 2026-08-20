@@ -40,12 +40,15 @@ def chat(request: ChatRequest):
     )
 
     # =====================================================
-    # STEP 3: BUILD CONTEXT FOR THE LLM
+    # STEP 3: BUILD CONTEXT + CITATIONS
     # =====================================================
 
-    context = context_builder.build_context(
+    context_data = context_builder.build_context(
         retrieved_results
     )
+
+    context = context_data["context"]
+    citations = context_data["citations"]
 
     # =====================================================
     # STEP 4: GENERATE ANSWER
@@ -61,5 +64,6 @@ def chat(request: ChatRequest):
     # =====================================================
 
     return ChatResponse(
-        answer=answer
+        answer=answer,
+        citations=citations,
     )

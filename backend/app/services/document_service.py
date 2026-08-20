@@ -32,64 +32,144 @@ class DocumentService:
         self.embedding_service = embedding_service
         self.vector_repository = vector_repository
 
-    def check_duplicate(self, filename: str):
+    # =====================================================
+    # DUPLICATE CHECK
+    # =====================================================
+
+    def check_duplicate(
+        self,
+        filename: str,
+    ):
         """
         Raise an exception if the document already exists.
         """
+
         if self.repository.exists(filename):
+
             from app.exceptions.custom_exceptions import (
                 DuplicateDocumentException,
             )
 
             raise DuplicateDocumentException()
 
-    def save_uploaded_file(self, file: UploadFile) -> Path:
+    # =====================================================
+    # SAVE FILE
+    # =====================================================
+
+    def save_uploaded_file(
+        self,
+        file: UploadFile,
+    ) -> Path:
         """
         Save uploaded file to disk and return its path.
         """
-        file_path = self.repository.get_path(file.filename)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_path = self.repository.get_path(
+            file.filename
+        )
+
+        with open(
+            file_path,
+            "wb",
+        ) as buffer:
+
+            shutil.copyfileobj(
+                file.file,
+                buffer,
+            )
 
         return file_path
 
-    def extract_and_clean_text(self, file_path: Path) -> str:
+    # =====================================================
+    # EXTRACT + CLEAN PAGES
+    # =====================================================
+
+    def extract_and_clean_pages(
+        self,
+        file_path: Path,
+    ) -> list[dict]:
         """
-        Extract and clean text from the uploaded PDF.
+        Extract text from the PDF while preserving
+        page numbers and clean each page independently.
+
+        Returns:
+
+            [
+                {
+                    "page_number": 1,
+                    "text": "..."
+                },
+                ...
+            ]
         """
-        extracted_text = self.processor.extract_text(
+
+        pages = self.processor.extract_pages(
             str(file_path)
         )
 
-        cleaned_text = self.processor.clean_text(
-            extracted_text
-        )
+        cleaned_pages = []
 
-        return cleaned_text
+        for page in pages:
 
-    def chunk_text(
+            cleaned_text = self.processor.clean_text(
+                page["text"]
+            )
+
+            if not cleaned_text:
+                continue
+
+            cleaned_pages.append(
+                {
+                    "page_number": page["page_number"],
+                    "text": cleaned_text,
+                }
+            )
+
+        return cleaned_pages
+
+    # =====================================================
+    # CHUNK PAGES
+    # =====================================================
+
+    def chunk_pages(
         self,
-        cleaned_text: str,
+        pages: list[dict],
         filename: str,
     ):
         """
-        Split cleaned text into chunks and attach metadata.
+        Split page-aware text into chunks while preserving
+        page metadata.
         """
-        return self.chunker.chunk_text(
-            cleaned_text,
+
+        return self.chunker.chunk_pages(
+            pages,
             filename,
         )
 
-    def embed_chunks(self, chunks):
+    # =====================================================
+    # EMBEDDINGS
+    # =====================================================
+
+    def embed_chunks(
+        self,
+        chunks,
+    ):
         """
         Generate embeddings for all document chunks.
         """
-        texts = [chunk.text for chunk in chunks]
+
+        texts = [
+            chunk.text
+            for chunk in chunks
+        ]
 
         return self.embedding_service.embed_documents(
             texts
         )
+
+    # =====================================================
+    # STORE CHUNKS
+    # =====================================================
 
     def store_chunks(
         self,
@@ -97,8 +177,9 @@ class DocumentService:
         embeddings,
     ):
         """
-        Store chunks and their embeddings in Qdrant.
+        Store document chunks and embeddings in Qdrant.
         """
+
         self.vector_repository.store_chunks(
             chunks,
             embeddings,

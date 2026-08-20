@@ -106,6 +106,7 @@ class VectorRepository:
                     "chunk_id": chunk.chunk_id,
                     "text": chunk.text,
                     "source": chunk.source,
+                    "page_number": chunk.page_number,
                 },
             )
 

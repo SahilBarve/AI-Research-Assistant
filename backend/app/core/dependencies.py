@@ -47,12 +47,13 @@ for point in stored_points:
     payload = point.payload
 
     chunks.append(
-        DocumentChunk(
-            chunk_id=payload["chunk_id"],
-            text=payload["text"],
-            source=payload["source"],
-        )
+    DocumentChunk(
+        chunk_id=payload["chunk_id"],
+        text=payload["text"],
+        source=payload["source"],
+        page_number=payload["page_number"],
     )
+ )
 
 
 if chunks:

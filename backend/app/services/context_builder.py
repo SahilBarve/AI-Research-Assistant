@@ -1,8 +1,10 @@
 """
 Context Builder Service.
 
-Converts reranked document chunks into a structured
-context string that can be provided to the LLM.
+Converts reranked document chunks into:
+
+1. LLM-ready context
+2. Structured citation metadata
 """
 
 from typing import List, Dict
@@ -10,29 +12,14 @@ from typing import List, Dict
 
 class ContextBuilder:
     """
-    Builds clean LLM-ready context from reranked chunks.
-
-    Expected input format:
-
-        {
-            "chunk": DocumentChunk,
-            "rrf_score": float,
-            "reranker_score": float
-        }
+    Builds clean LLM-ready context from reranked chunks
+    and preserves citation metadata.
     """
 
     def __init__(
         self,
         max_context_chars: int = 12000,
     ):
-        """
-        Parameters
-        ----------
-        max_context_chars:
-            Maximum number of characters allowed in the
-            final context.
-        """
-
         self.max_context_chars = max_context_chars
 
     # =====================================================
@@ -42,19 +29,26 @@ class ContextBuilder:
     def build_context(
         self,
         results: List[Dict],
-    ) -> str:
+    ):
         """
-        Convert reranked results into structured
-        LLM-ready context.
+        Convert reranked results into:
+
+            context
+            citations
 
         The results should already be ordered by
         reranker relevance.
         """
 
         if not results:
-            return ""
+            return {
+                "context": "",
+                "citations": [],
+            }
 
         context_parts = []
+        citations = []
+
         current_length = 0
 
         # =================================================
@@ -70,14 +64,15 @@ class ContextBuilder:
             # -------------------------------------------------
 
             formatted_chunk = (
-                f"SOURCE: {chunk.source}\n"
-                f"CHUNK ID: {chunk.chunk_id}\n"
-                f"TEXT:\n"
-                f"{chunk.text}\n"
-            )
+            f"SOURCE: {chunk.source}\n"
+            f"PAGE: {chunk.page_number}\n"
+            f"CHUNK ID: {chunk.chunk_id}\n"
+            f"TEXT:\n"
+            f"{chunk.text}\n"
+        )
 
             # -------------------------------------------------
-            # Check context size
+            # Context size check
             # -------------------------------------------------
 
             if (
@@ -88,7 +83,7 @@ class ContextBuilder:
                 break
 
             # -------------------------------------------------
-            # Add chunk
+            # Add context
             # -------------------------------------------------
 
             context_parts.append(
@@ -99,10 +94,28 @@ class ContextBuilder:
                 formatted_chunk
             )
 
+            # -------------------------------------------------
+            # Store citation metadata
+            # -------------------------------------------------
+
+            citations.append(
+    {
+        "source": chunk.source,
+        "page_number": chunk.page_number,
+        "chunk_id": chunk.chunk_id,
+        "text": chunk.text[:300],
+    }
+)
+
         # =================================================
-        # JOIN CHUNKS
+        # FINAL CONTEXT
         # =================================================
 
-        return "\n---\n".join(
+        context = "\n---\n".join(
             context_parts
         )
+
+        return {
+            "context": context,
+            "citations": citations,
+        }

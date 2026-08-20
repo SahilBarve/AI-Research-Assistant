@@ -10,8 +10,19 @@ class ChatRequest(BaseModel):
         ...,
         min_length=1,
         max_length=1000,
-        description="User question for the AI assistant."
+        description="User question for the AI assistant.",
     )
+
+
+class Citation(BaseModel):
+    """
+    Citation metadata for a retrieved document chunk.
+    """
+
+    source: str
+    page_number: int
+    chunk_id: int
+    text: str
 
 
 class ChatResponse(BaseModel):
@@ -20,3 +31,4 @@ class ChatResponse(BaseModel):
     """
 
     answer: str
+    citations: list[Citation] = []  

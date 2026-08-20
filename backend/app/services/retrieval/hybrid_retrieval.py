@@ -267,11 +267,13 @@ class HybridRetriever:
         payload,
     ) -> DocumentChunk:
         """
-        Convert a Qdrant payload into a DocumentChunk.
+        Convert a Qdrant payload into a DocumentChunk
+        while preserving citation metadata.
         """
 
         return DocumentChunk(
             chunk_id=payload["chunk_id"],
             text=payload["text"],
             source=payload["source"],
+            page_number=payload["page_number"],
         )

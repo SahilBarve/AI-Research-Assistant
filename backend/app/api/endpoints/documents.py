@@ -129,10 +129,10 @@ async def upload_document(
 
 
     # ----------------------------------------
-    # Extract and clean text
+    # Extract and clean pages
     # ----------------------------------------
 
-    cleaned_text = document_service.extract_and_clean_text(
+    pages = document_service.extract_and_clean_pages(
         file_path
     )
 
@@ -141,8 +141,12 @@ async def upload_document(
     # Chunk document
     # ----------------------------------------
 
-    chunks = document_service.chunk_text(
-        cleaned_text,
+    # ----------------------------------------
+# Chunk document pages
+# ----------------------------------------
+
+    chunks = document_service.chunk_pages(
+        pages,
         file.filename,
     )
 
