@@ -5,17 +5,32 @@ from fastapi import UploadFile
 
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
+from app.repositories.bm25_repository import BM25Repository
+
 from app.services.document_processors.pdf_processors import PDFProcessor
 from app.services.chunkers.character_chunker import TextChunker
 from app.services.embeddings.embedding_service import EmbeddingService
+
+from app.schemas.chunk import DocumentChunk
 
 
 class DocumentService:
     """
     Handles all document-related business logic.
 
-    The API should only receive the request and delegate
-    the work to this service.
+    The API layer delegates document operations to this
+    service.
+
+    Responsibilities:
+
+    - duplicate checking
+    - saving uploaded files
+    - PDF extraction
+    - text cleaning
+    - chunking
+    - embedding generation
+    - Qdrant storage
+    - BM25 index rebuilding
     """
 
     def __init__(
@@ -25,12 +40,20 @@ class DocumentService:
         chunker: TextChunker,
         embedding_service: EmbeddingService,
         vector_repository: VectorRepository,
+        bm25_repository: BM25Repository,
     ):
+
         self.repository = repository
+
         self.processor = processor
+
         self.chunker = chunker
+
         self.embedding_service = embedding_service
+
         self.vector_repository = vector_repository
+
+        self.bm25_repository = bm25_repository
 
     # =====================================================
     # DUPLICATE CHECK
@@ -90,7 +113,7 @@ class DocumentService:
     ) -> list[dict]:
         """
         Extract text from the PDF while preserving
-        page numbers and clean each page independently.
+        page numbers.
 
         Returns:
 
@@ -147,7 +170,7 @@ class DocumentService:
         )
 
     # =====================================================
-    # EMBEDDINGS
+    # GENERATE EMBEDDINGS
     # =====================================================
 
     def embed_chunks(
@@ -155,7 +178,7 @@ class DocumentService:
         chunks,
     ):
         """
-        Generate embeddings for all document chunks.
+        Generate embeddings for document chunks.
         """
 
         texts = [
@@ -177,10 +200,166 @@ class DocumentService:
         embeddings,
     ):
         """
-        Store document chunks and embeddings in Qdrant.
+        Store chunks and embeddings in Qdrant.
         """
 
         self.vector_repository.store_chunks(
             chunks,
             embeddings,
         )
+
+    # =====================================================
+    # REBUILD BM25 INDEX
+    # =====================================================
+
+    def rebuild_bm25_index(self):
+        """
+        Rebuild the BM25 index from all chunks currently
+        stored in Qdrant.
+
+        This guarantees that BM25 contains the latest
+        document collection.
+        """
+
+        # -------------------------------------------------
+        # Get latest chunks from Qdrant
+        # -------------------------------------------------
+
+        stored_points = (
+            self.vector_repository.get_all_points(
+                limit=1000
+            )
+        )
+
+        chunks = []
+
+        # -------------------------------------------------
+        # Convert Qdrant payloads into DocumentChunk
+        # -------------------------------------------------
+
+        for point in stored_points:
+
+            payload = point.payload
+
+            chunks.append(
+                DocumentChunk(
+                    chunk_id=payload["chunk_id"],
+                    text=payload["text"],
+                    source=payload["source"],
+                    page_number=payload["page_number"],
+                )
+            )
+
+        # -------------------------------------------------
+        # Rebuild BM25
+        # -------------------------------------------------
+
+        self.bm25_repository.rebuild_from_chunks(
+            chunks
+        )
+
+        print(
+            f"BM25 index rebuilt with "
+            f"{len(chunks)} chunks."
+        )
+
+    # =====================================================
+    # REINDEX DOCUMENT
+    # =====================================================
+
+    def reindex_document(
+        self,
+        filename: str,
+    ):
+        """
+        Re-index an existing document.
+
+        The original PDF is kept on disk.
+        Only its searchable/indexed representation
+        is replaced.
+        """
+
+        # -------------------------------------------------
+        # Check that document exists
+        # -------------------------------------------------
+
+        if not self.repository.exists(filename):
+
+            from app.exceptions.custom_exceptions import (
+                DocumentNotFoundException,
+            )
+
+            raise DocumentNotFoundException(
+                f"Document '{filename}' not found."
+            )
+
+        # -------------------------------------------------
+        # Get existing PDF path
+        # -------------------------------------------------
+
+        file_path = self.repository.get_path(
+            filename
+        )
+
+        # -------------------------------------------------
+        # Re-extract + clean pages
+        # -------------------------------------------------
+
+        pages = self.extract_and_clean_pages(
+            file_path
+        )
+
+        if not pages:
+            raise ValueError(
+                "No readable text found in the document."
+            )
+
+        # -------------------------------------------------
+        # Re-chunk
+        # -------------------------------------------------
+
+        chunks = self.chunk_pages(
+            pages,
+            filename,
+        )
+
+        if not chunks:
+            raise ValueError(
+                "No chunks generated from the document."
+            )
+
+        # -------------------------------------------------
+        # Generate new embeddings
+        # -------------------------------------------------
+
+        embeddings = self.embed_chunks(
+            chunks
+        )
+
+        # -------------------------------------------------
+        # Delete old Qdrant chunks
+        # -------------------------------------------------
+
+        self.vector_repository.delete_by_source(
+            filename
+        )
+
+        # -------------------------------------------------
+        # Store new chunks
+        # -------------------------------------------------
+
+        self.store_chunks(
+            chunks,
+            embeddings,
+        )
+
+        # -------------------------------------------------
+        # Rebuild BM25
+        # -------------------------------------------------
+
+        self.rebuild_bm25_index()
+
+        return {
+            "filename": filename,
+            "chunks": len(chunks),
+        }

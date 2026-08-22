@@ -7,6 +7,8 @@ from qdrant_client.models import (
     VectorParams,
     Filter,
     FilterSelector,
+    FieldCondition,
+    MatchValue,
 )
 
 from app.schemas.chunk import DocumentChunk
@@ -38,6 +40,7 @@ class VectorRepository:
         """
         Verify communication with Qdrant.
         """
+
         return self.client.get_collections()
 
     # ----------------------------------------------------
@@ -166,6 +169,48 @@ class VectorRepository:
         )
 
         return points
+
+    # ----------------------------------------------------
+    # Delete Document Chunks
+    # ----------------------------------------------------
+
+    def delete_by_source(
+        self,
+        source: str,
+    ) -> bool:
+        """
+        Delete all Qdrant chunks belonging to a document.
+
+        The document filename is stored in the
+        'source' payload field.
+
+        Returns
+        -------
+        bool
+            True if deletion request was sent.
+        """
+
+        self.client.delete(
+            collection_name=self.COLLECTION_NAME,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="source",
+                            match=MatchValue(
+                                value=source
+                            ),
+                        )
+                    ]
+                )
+            ),
+        )
+
+        print(
+            f"Deleted Qdrant chunks for: {source}"
+        )
+
+        return True
 
     # ----------------------------------------------------
     # Delete All Points

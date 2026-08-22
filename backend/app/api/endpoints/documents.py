@@ -1,20 +1,14 @@
-# Standard Library
 from pathlib import Path
 
-# Third-party
 from fastapi import APIRouter, File, UploadFile
 
-# Local application
 from app.core.config import get_settings
+
 from app.schemas.document import DocumentUploadResponse
 
-from app.services.document_processors.pdf_processors import PDFProcessor
-from app.repositories.document_repository import DocumentRepository
-from app.repositories.vector_repository import VectorRepository
-
-from app.services.document_service import DocumentService
-from app.services.chunkers.character_chunker import TextChunker
-from app.services.embeddings.embedding_service import EmbeddingService
+from app.core.dependencies import (
+    get_document_service,
+)
 
 from app.exceptions.custom_exceptions import (
     InvalidDocumentTypeException,
@@ -40,41 +34,30 @@ settings = get_settings()
 
 
 # ----------------------------------------------------
-# Dependencies
+# Shared Document Service
 # ----------------------------------------------------
 
-pdf_processor = PDFProcessor()
-
-document_repository = DocumentRepository()
-
-text_chunker = TextChunker()
-
-embedding_service = EmbeddingService()
-
-vector_repository = VectorRepository()
-
-
-document_service = DocumentService(
-    repository=document_repository,
-    processor=pdf_processor,
-    chunker=text_chunker,
-    embedding_service=embedding_service,
-    vector_repository=vector_repository,
-)
+document_service = get_document_service()
 
 
 # ----------------------------------------------------
 # Constants
 # ----------------------------------------------------
 
-MAX_FILE_SIZE = settings.max_upload_size_mb * 1024 * 1024
+MAX_FILE_SIZE = (
+    settings.max_upload_size_mb
+    * 1024
+    * 1024
+)
 
-ALLOWED_EXTENSIONS = {".pdf"}
+ALLOWED_EXTENSIONS = {
+    ".pdf"
+}
 
 
-# ----------------------------------------------------
-# Endpoint
-# ----------------------------------------------------
+# ====================================================
+# Upload Endpoint
+# ====================================================
 
 @router.post(
     "/upload",
@@ -88,9 +71,12 @@ async def upload_document(
     # Validate file extension
     # ----------------------------------------
 
-    extension = Path(file.filename).suffix.lower()
+    extension = Path(
+        file.filename
+    ).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
+
         raise InvalidDocumentTypeException()
 
 
@@ -101,12 +87,17 @@ async def upload_document(
     content = await file.read()
 
     if len(content) > MAX_FILE_SIZE:
+
         raise DocumentTooLargeException(
             f"Maximum allowed file size is "
             f"{settings.max_upload_size_mb} MB."
         )
 
-    # Reset file pointer after reading
+
+    # ----------------------------------------
+    # Reset file pointer
+    # ----------------------------------------
+
     file.file.seek(0)
 
 
@@ -123,17 +114,21 @@ async def upload_document(
     # Save uploaded file
     # ----------------------------------------
 
-    file_path = document_service.save_uploaded_file(
-        file
+    file_path = (
+        document_service.save_uploaded_file(
+            file
+        )
     )
 
 
     # ----------------------------------------
-    # Extract and clean pages
+    # Extract + clean pages
     # ----------------------------------------
 
-    pages = document_service.extract_and_clean_pages(
-        file_path
+    pages = (
+        document_service.extract_and_clean_pages(
+            file_path
+        )
     )
 
 
@@ -141,13 +136,11 @@ async def upload_document(
     # Chunk document
     # ----------------------------------------
 
-    # ----------------------------------------
-# Chunk document pages
-# ----------------------------------------
-
-    chunks = document_service.chunk_pages(
-        pages,
-        file.filename,
+    chunks = (
+        document_service.chunk_pages(
+            pages,
+            file.filename,
+        )
     )
 
 
@@ -155,8 +148,10 @@ async def upload_document(
     # Generate embeddings
     # ----------------------------------------
 
-    embeddings = document_service.embed_chunks(
-        chunks
+    embeddings = (
+        document_service.embed_chunks(
+            chunks
+        )
     )
 
 
@@ -171,6 +166,13 @@ async def upload_document(
 
 
     # ----------------------------------------
+    # Rebuild BM25
+    # ----------------------------------------
+
+    document_service.rebuild_bm25_index()
+
+
+    # ----------------------------------------
     # Response
     # ----------------------------------------
 
@@ -178,3 +180,25 @@ async def upload_document(
         message="Document uploaded successfully.",
         filename=file.filename,
     )
+
+
+# ====================================================
+# Re-index Document
+# ====================================================
+
+@router.post(
+    "/{filename}/reindex",
+)
+async def reindex_document(
+    filename: str,
+):
+
+    result = document_service.reindex_document(
+        filename
+    )
+
+    return {
+        "message": "Document re-indexed successfully.",
+        "filename": result["filename"],
+        "chunks": result["chunks"],
+    }

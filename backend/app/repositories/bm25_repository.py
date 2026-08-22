@@ -17,17 +17,13 @@ class BM25Repository:
         """
         Initialize the BM25 repository.
 
-        The BM25 index will be created later using
-        build_index().
+        The index is created using build_index() or
+        rebuild_from_chunks().
         """
 
         self.bm25 = None
 
-        # Store the original DocumentChunk objects.
-        #
-        # BM25 internally works with tokenized text,
-        # but we need the original chunks when returning
-        # search results.
+        # Store original DocumentChunk objects.
         self.chunks = []
 
     # ====================================================
@@ -36,33 +32,63 @@ class BM25Repository:
 
     def build_index(self, chunks):
         """
-        Build a BM25 index from document chunks.
+        Build the BM25 index from document chunks.
+
+        This method is used during initial application
+        startup.
+        """
+
+        self._build_index(chunks)
+
+    # ====================================================
+    # REBUILD BM25 INDEX
+    # ====================================================
+
+    def rebuild_from_chunks(self, chunks):
+        """
+        Rebuild the BM25 index using the latest chunks.
+
+        This should be called whenever documents are:
+
+        - uploaded
+        - deleted
+        - re-indexed
 
         Parameters
         ----------
         chunks:
-            List of DocumentChunk objects.
+            Latest list of DocumentChunk objects.
         """
 
-        # Store the original chunks so that we can later
-        # map BM25 results back to the actual DocumentChunk.
-        self.chunks = chunks
+        self._build_index(chunks)
 
-        # Convert every chunk's text into a list of tokens.
-        #
-        # Example:
-        #
-        # "Agentic software engineering is..."
-        #
-        # becomes:
-        #
-        # ["agentic", "software", "engineering", "is", ...]
+    # ====================================================
+    # INTERNAL INDEX BUILDER
+    # ====================================================
+
+    def _build_index(self, chunks):
+        """
+        Internal method responsible for actually creating
+        the BM25 index.
+        """
+
+        # Store latest chunks.
+        self.chunks = list(chunks)
+
+        # If there are no chunks, clear the index.
+        if not self.chunks:
+
+            self.bm25 = None
+
+            return
+
+        # Tokenize every chunk.
         tokenized_corpus = [
             self._tokenize(chunk.text)
-            for chunk in chunks
+            for chunk in self.chunks
         ]
 
-        # Create the BM25 index.
+        # Build BM25 index.
         self.bm25 = BM25Okapi(
             tokenized_corpus
         )
@@ -77,18 +103,17 @@ class BM25Repository:
         limit: int = 5,
     ):
         """
-        Search the BM25 index and return the
-        highest-scoring chunks.
+        Search the BM25 index and return the highest
+        scoring document chunks.
         """
 
-        # Make sure an index exists before searching.
+        # Make sure BM25 has been initialized.
         if self.bm25 is None:
-            raise RuntimeError(
-                "BM25 index has not been built."
-            )
+
+            return []
 
         # ------------------------------------------------
-        # Tokenize the user's query.
+        # Tokenize query
         # ------------------------------------------------
 
         tokenized_query = self._tokenize(
@@ -96,7 +121,7 @@ class BM25Repository:
         )
 
         # ------------------------------------------------
-        # Calculate BM25 score for every chunk.
+        # Calculate BM25 scores
         # ------------------------------------------------
 
         scores = self.bm25.get_scores(
@@ -104,9 +129,7 @@ class BM25Repository:
         )
 
         # ------------------------------------------------
-        # Rank chunk indexes by BM25 score.
-        #
-        # reverse=True means highest score first.
+        # Rank indexes by score
         # ------------------------------------------------
 
         ranked_indexes = sorted(
@@ -115,21 +138,23 @@ class BM25Repository:
             reverse=True,
         )
 
-        # Keep only the requested number of results.
+        # Keep only requested number.
         ranked_indexes = ranked_indexes[:limit]
 
-        results = []
+        # ------------------------------------------------
+        # Convert indexes back to chunks
+        # ------------------------------------------------
 
-        # ------------------------------------------------
-        # Convert indexes back into DocumentChunks.
-        # ------------------------------------------------
+        results = []
 
         for index in ranked_indexes:
 
             results.append(
                 {
                     "chunk": self.chunks[index],
-                    "score": float(scores[index]),
+                    "score": float(
+                        scores[index]
+                    ),
                 }
             )
 
@@ -142,13 +167,7 @@ class BM25Repository:
     @staticmethod
     def _tokenize(text: str):
         """
-        Convert text into normalized tokens.
-
-        Steps:
-
-        1. Convert text to lowercase.
-        2. Extract words.
-        3. Remove punctuation.
+        Normalize text into tokens.
 
         Example:
 
@@ -159,19 +178,8 @@ class BM25Repository:
             ["agentic", "software", "engineering"]
         """
 
-        # Convert text to lowercase.
         text = text.lower()
 
-        # Extract word-like tokens.
-        #
-        # \b\w+\b means:
-        #
-        #   \b → word boundary
-        #   \w+ → one or more word characters
-        #
-        # This removes punctuation such as:
-        #
-        # ".", ",", "!", "?", etc.
         tokens = re.findall(
             r"\b\w+\b",
             text,

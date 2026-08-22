@@ -391,6 +391,7 @@ for point in stored_points:
             chunk_id=payload["chunk_id"],
             text=payload["text"],
             source=payload["source"],
+            page_number=payload["page_number"],
         )
     )
 
@@ -536,6 +537,7 @@ for test_number, test_case in enumerate(
             chunk_id=point.payload["chunk_id"],
             text=point.payload["text"],
             source=point.payload["source"],
+            page_number=point.payload["page_number"],
         )
 
         dense_results_for_rrf.append(
