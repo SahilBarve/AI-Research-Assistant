@@ -5,13 +5,18 @@ Responsible for extracting and cleaning text from PDF documents
 while preserving page information.
 """
 
-import fitz
 import re
 
+import fitz
 
-class PDFProcessor:
+from app.services.document_processors.base_processor import (
+    BaseDocumentProcessor,
+)
+
+
+class PDFProcessor(BaseDocumentProcessor):
     """
-    Service responsible for reading PDF files
+    Processor responsible for reading PDF files
     and extracting their text.
     """
 
@@ -21,15 +26,6 @@ class PDFProcessor:
     ) -> list[dict]:
         """
         Extract text from a PDF while preserving page numbers.
-
-        Returns:
-            [
-                {
-                    "page_number": 1,
-                    "text": "..."
-                },
-                ...
-            ]
         """
 
         pages = []
@@ -37,6 +33,7 @@ class PDFProcessor:
         document = fitz.open(file_path)
 
         try:
+
             for page_number, page in enumerate(
                 document,
                 start=1,
@@ -52,12 +49,13 @@ class PDFProcessor:
                 )
 
         finally:
+
             document.close()
 
         return pages
 
     # =====================================================
-    # CLEAN PAGE TEXT
+    # CLEAN TEXT
     # =====================================================
 
     def clean_text(
@@ -65,18 +63,15 @@ class PDFProcessor:
         text: str,
     ) -> str:
         """
-        Clean extracted text from one PDF page.
+        Clean extracted PDF text.
         """
 
-        # Replace multiple whitespace characters
-        # with a single space.
         text = re.sub(
             r"\s+",
             " ",
             text,
         )
 
-        # Remove leading/trailing whitespace.
         text = text.strip()
 
         return text

@@ -1,106 +1,88 @@
+"""
+Embedding Service.
+
+Responsible for converting text into dense vector embeddings
+using a local Hugging Face SentenceTransformer model.
+"""
+
 from typing import List
 
 from sentence_transformers import SentenceTransformer
 
+from app.core.config import get_settings
+
 
 class EmbeddingService:
     """
-    Generates vector embeddings for text using a local
-    SentenceTransformer model.
+    Generates dense vector embeddings for documents and queries.
 
-    This service is responsible for converting text into
-    numerical vectors that can be stored and searched
-    using Qdrant.
+    The embedding model is loaded from application configuration
+    so that it can be changed through .env without modifying code.
     """
 
     def __init__(self):
+        settings = get_settings()
+
+        self.model_name = settings.embedding_model
+        self.model = SentenceTransformer(self.model_name)
+
+    def embed_text(self, text: str) -> List[float]:
         """
-        Load the embedding model.
+        Generate an embedding for a single text.
 
-        BAAI/bge-small-en-v1.5 produces embeddings
-        with 384 dimensions.
-        """
+        Args:
+            text: Input text.
 
-        self.model = SentenceTransformer(
-            "BAAI/bge-small-en-v1.5"
-        )
-
-    # ====================================================
-    # EMBED SINGLE TEXT
-    # ====================================================
-
-    def embed_text(
-        self,
-        text: str,
-    ) -> List[float]:
-        """
-        Convert a single text string into an embedding.
-
-        Used mainly for:
-
-        1. User queries
-        2. Individual pieces of text
-
-        Example:
-
-            "What is agentic AI?"
-
-        becomes something like:
-
-            [0.012, -0.034, 0.081, ...]
-
-        The resulting vector has 384 values.
+        Returns:
+            A normalized embedding vector.
         """
 
-        # Convert the text into an embedding.
+        if not text or not text.strip():
+            raise ValueError("Text cannot be empty.")
+
         embedding = self.model.encode(
             text,
-
-            # Normalize the vector so that its magnitude
-            # becomes 1.
-            #
-            # This works well with cosine similarity.
             normalize_embeddings=True,
         )
 
-        # SentenceTransformer returns a NumPy array.
-        # Convert it into a normal Python list so it can
-        # easily be passed to Qdrant.
         return embedding.tolist()
-
-    # ====================================================
-    # EMBED MULTIPLE DOCUMENTS
-    # ====================================================
 
     def embed_documents(
         self,
         texts: List[str],
     ) -> List[List[float]]:
         """
-        Generate embeddings for multiple text chunks.
+        Generate embeddings for multiple documents/chunks.
 
-        Used during document ingestion.
+        Args:
+            texts: List of document/chunk texts.
 
-        Example:
-
-            chunks = [
-                "FastAPI is a Python framework.",
-                "Qdrant is a vector database.",
-                "BM25 performs keyword retrieval."
-            ]
-
-        Each chunk is converted into a 384-dimensional
-        vector.
+        Returns:
+            List of normalized embedding vectors.
         """
 
-        # Generate embeddings for all texts at once.
+        if not texts:
+            return []
+
+        cleaned_texts = [
+            text.strip()
+            for text in texts
+            if text and text.strip()
+        ]
+
+        if not cleaned_texts:
+            return []
 
         embeddings = self.model.encode(
-            texts,
-
-            # Normalize every embedding.
+            cleaned_texts,
             normalize_embeddings=True,
         )
 
-        # Convert NumPy arrays into regular Python lists.
         return embeddings.tolist()
+
+    def get_dimension(self) -> int:
+        """
+        Return the dimensionality of the embedding model.
+        """
+
+        return self.model.get_sentence_embedding_dimension()

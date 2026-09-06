@@ -1,26 +1,17 @@
 """
 Hybrid Retrieval Service.
 
-Pipeline:
-
-1. Dense semantic retrieval
-2. BM25 lexical retrieval
-3. Reciprocal Rank Fusion (RRF)
-4. Cross-Encoder reranking
-
-The goal is to retrieve broadly and then
-rerank precisely.
+Combines:
+    1. Dense vector retrieval
+    2. BM25 keyword retrieval
+    3. Reciprocal Rank Fusion (RRF)
+    4. Cross-encoder reranking
 """
 
 from app.schemas.chunk import DocumentChunk
 
 
 class HybridRetriever:
-    """
-    Combines Dense Retrieval and BM25 Retrieval
-    using Reciprocal Rank Fusion, followed by
-    Cross-Encoder reranking.
-    """
 
     def __init__(
         self,
@@ -34,9 +25,9 @@ class HybridRetriever:
         self.bm25_repository = bm25_repository
         self.reranker = reranker
 
-    # =========================================================
-    # RRF FUSION
-    # =========================================================
+    # ==========================================================
+    # Reciprocal Rank Fusion
+    # ==========================================================
 
     def _rrf_fusion(
         self,
@@ -45,61 +36,73 @@ class HybridRetriever:
         k: int = 60,
     ):
         """
-        Combine Dense and BM25 rankings using
-        Reciprocal Rank Fusion.
+        Combine dense and BM25 rankings using Reciprocal Rank Fusion.
 
-        RRF:
+        RRF score:
 
-            RRF(d) = Σ 1 / (k + rank)
+            score = 1 / (k + rank)
+
+        A chunk appearing in both retrieval systems receives
+        contributions from both rankings.
         """
 
         scores = {}
 
-        # -----------------------------------------------------
+        # ------------------------------------------------------
         # Dense results
-        # -----------------------------------------------------
+        # ------------------------------------------------------
 
         for rank, result in enumerate(
             dense_results,
             start=1,
         ):
             chunk = result["chunk"]
-            chunk_id = chunk.chunk_id
 
-            if chunk_id not in scores:
-                scores[chunk_id] = {
+            # Composite identity prevents collisions between
+            # chunks from different documents.
+            chunk_key = (
+                chunk.source,
+                chunk.chunk_id,
+            )
+
+            if chunk_key not in scores:
+                scores[chunk_key] = {
                     "chunk": chunk,
                     "score": 0.0,
                 }
 
-            scores[chunk_id]["score"] += (
+            scores[chunk_key]["score"] += (
                 1 / (k + rank)
             )
 
-        # -----------------------------------------------------
+        # ------------------------------------------------------
         # BM25 results
-        # -----------------------------------------------------
+        # ------------------------------------------------------
 
         for rank, result in enumerate(
             bm25_results,
             start=1,
         ):
             chunk = result["chunk"]
-            chunk_id = chunk.chunk_id
 
-            if chunk_id not in scores:
-                scores[chunk_id] = {
+            chunk_key = (
+                chunk.source,
+                chunk.chunk_id,
+            )
+
+            if chunk_key not in scores:
+                scores[chunk_key] = {
                     "chunk": chunk,
                     "score": 0.0,
                 }
 
-            scores[chunk_id]["score"] += (
+            scores[chunk_key]["score"] += (
                 1 / (k + rank)
             )
 
-        # -----------------------------------------------------
+        # ------------------------------------------------------
         # Sort by RRF score
-        # -----------------------------------------------------
+        # ------------------------------------------------------
 
         ranked_results = sorted(
             scores.values(),
@@ -109,9 +112,9 @@ class HybridRetriever:
 
         return ranked_results
 
-    # =========================================================
-    # RETRIEVAL ONLY
-    # =========================================================
+    # ==========================================================
+    # Retrieval
+    # ==========================================================
 
     def retrieve(
         self,
@@ -120,41 +123,29 @@ class HybridRetriever:
         rrf_limit: int = 20,
     ):
         """
-        Perform Dense + BM25 retrieval followed by RRF.
-
-        IMPORTANT:
-        This method stops BEFORE reranking.
-
-        Returns:
-            Top RRF candidates.
+        Perform dense retrieval + BM25 retrieval
+        followed by RRF fusion.
         """
 
-        # =====================================================
-        # STEP 1
-        # Query embedding
-        # =====================================================
+        # ------------------------------------------------------
+        # Dense retrieval
+        # ------------------------------------------------------
 
         query_embedding = (
-            self.embedding_service.embed_text(
-                query
-            )
+            self.embedding_service.embed_text(query)
         )
 
-        # =====================================================
-        # STEP 2
-        # Dense Retrieval
-        # =====================================================
-
-        dense_points = (
-            self.vector_repository.search(
-                query_vector=query_embedding,
-                limit=retrieval_limit,
-            )
+        dense_points = self.vector_repository.search(
+            query_vector=query_embedding,
+            limit=retrieval_limit,
         )
 
         dense_results = []
 
         for point in dense_points:
+
+            if not point.payload:
+                continue
 
             chunk = self._payload_to_chunk(
                 point.payload
@@ -167,38 +158,29 @@ class HybridRetriever:
                 }
             )
 
-        # =====================================================
-        # STEP 3
-        # BM25 Retrieval
-        # =====================================================
+        # ------------------------------------------------------
+        # BM25 retrieval
+        # ------------------------------------------------------
 
-        bm25_results = (
-            self.bm25_repository.search(
-                query=query,
-                limit=retrieval_limit,
-            )
+        bm25_results = self.bm25_repository.search(
+            query=query,
+            limit=retrieval_limit,
         )
 
-        # =====================================================
-        # STEP 4
-        # RRF
-        # =====================================================
+        # ------------------------------------------------------
+        # RRF fusion
+        # ------------------------------------------------------
 
         fused_results = self._rrf_fusion(
             dense_results=dense_results,
             bm25_results=bm25_results,
         )
 
-        # =====================================================
-        # STEP 5
-        # Return RRF results
-        # =====================================================
-
         return fused_results[:rrf_limit]
 
-    # =========================================================
-    # HYBRID SEARCH + RERANKING
-    # =========================================================
+    # ==========================================================
+    # Search + Reranking
+    # ==========================================================
 
     def search(
         self,
@@ -208,47 +190,26 @@ class HybridRetriever:
         rerank_limit: int = 20,
     ):
         """
-        Perform:
+        Complete retrieval pipeline:
 
-            Dense
+            Query
               ↓
-            BM25
+        Dense Retrieval
+              +
+        BM25 Retrieval
               ↓
-            RRF
+          RRF Fusion
               ↓
-            Cross-Encoder
+        Cross Encoder
+              ↓
+        Top-K Results
         """
-
-        # -----------------------------------------------------
-        # Get RRF candidates
-        # -----------------------------------------------------
 
         rrf_results = self.retrieve(
             query=query,
             retrieval_limit=retrieval_limit,
             rrf_limit=rerank_limit,
         )
-
-        print(
-            "\nRRF candidates:",
-            len(rrf_results),
-        )
-
-        print("\nRRF Top-20:")
-
-        for rank, result in enumerate(
-            rrf_results,
-            start=1,
-        ):
-            print(
-                f"Rank {rank}: "
-                f"Chunk {result['chunk'].chunk_id} | "
-                f"RRF Score: {result['score']:.6f}"
-            )
-
-        # -----------------------------------------------------
-        # Rerank
-        # -----------------------------------------------------
 
         reranked_results = self.reranker.rerank(
             query=query,
@@ -258,17 +219,16 @@ class HybridRetriever:
 
         return reranked_results
 
-    # =========================================================
-    # QDRANT PAYLOAD → DocumentChunk
-    # =========================================================
+    # ==========================================================
+    # Payload Conversion
+    # ==========================================================
 
     @staticmethod
     def _payload_to_chunk(
         payload,
     ) -> DocumentChunk:
         """
-        Convert a Qdrant payload into a DocumentChunk
-        while preserving citation metadata.
+        Convert a Qdrant payload into a DocumentChunk.
         """
 
         return DocumentChunk(

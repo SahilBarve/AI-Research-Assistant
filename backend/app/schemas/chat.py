@@ -17,7 +17,7 @@ class ChatRequest(BaseModel):
         ...,
         min_length=1,
         max_length=100,
-        description="Unique ID used to maintain conversation history.",
+        description="Unique identifier for the conversation session.",
     )
 
 
@@ -44,6 +44,4 @@ class ChatResponse(BaseModel):
 
     answer: str
 
-    citations: list[Citation] = Field(
-        default_factory=list
-    )
+    citations: list[Citation] = []
