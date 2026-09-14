@@ -1,12 +1,12 @@
+
 """
 Vector Repository.
 
 Handles all interactions with Qdrant for storing, searching,
-retrieving, and deleting document chunk embeddings.
+retrieving, counting, and deleting document chunk embeddings.
 """
 
-from app.core.config import get_settings
-from app.schemas.chunk import DocumentChunk
+from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -19,13 +19,21 @@ from qdrant_client.models import (
     VectorParams,
 )
 
+from app.core.config import get_settings
+from app.schemas.chunk import DocumentChunk
+
 
 class VectorRepository:
     """
-    Repository responsible for vector storage and retrieval using Qdrant.
+    Repository responsible for vector storage and retrieval
+    using Qdrant.
     """
 
     def __init__(self):
+        """
+        Initialize the Qdrant client and repository configuration.
+        """
+
         settings = get_settings()
 
         self.collection_name = settings.qdrant_collection
@@ -36,9 +44,9 @@ class VectorRepository:
             port=settings.qdrant_port,
         )
 
-    # ==========================================================
-    # Health Check
-    # ==========================================================
+    # =========================================================
+    # HEALTH CHECK
+    # =========================================================
 
     def health_check(self):
         """
@@ -47,16 +55,16 @@ class VectorRepository:
 
         return self.client.get_collections()
 
-    # ==========================================================
-    # Collection Management
-    # ==========================================================
+    # =========================================================
+    # COLLECTION MANAGEMENT
+    # =========================================================
 
     def create_collection(self):
         """
         Create the Qdrant collection if it does not already exist.
         """
 
-        if self.client.collection_exists(self.collection_name):
+        if self.collection_exists():
             return
 
         self.client.create_collection(
@@ -76,9 +84,30 @@ class VectorRepository:
             self.collection_name
         )
 
-    # ==========================================================
-    # Store Chunks
-    # ==========================================================
+    # =========================================================
+    # COUNT
+    # =========================================================
+
+    def count(self) -> int:
+        """
+        Return the total number of stored vector points.
+
+        This keeps Qdrant-specific counting logic inside
+        the repository layer.
+        """
+
+        if not self.collection_exists():
+            return 0
+
+        collection_info = self.client.get_collection(
+            collection_name=self.collection_name,
+        )
+
+        return collection_info.points_count or 0
+
+    # =========================================================
+    # STORE CHUNKS
+    # =========================================================
 
     def store_chunks(
         self,
@@ -87,6 +116,8 @@ class VectorRepository:
     ):
         """
         Store document chunks and their embeddings in Qdrant.
+
+        Each chunk is stored as an individual Qdrant point.
         """
 
         if len(chunks) != len(embeddings):
@@ -99,11 +130,10 @@ class VectorRepository:
 
         points = []
 
-        for chunk, embedding in zip(chunks, embeddings):
-
-            # Each Qdrant point receives a unique UUID.
-            from uuid import uuid4
-
+        for chunk, embedding in zip(
+            chunks,
+            embeddings,
+        ):
             point_id = str(uuid4())
 
             points.append(
@@ -124,9 +154,9 @@ class VectorRepository:
             points=points,
         )
 
-    # ==========================================================
-    # Dense Search
-    # ==========================================================
+    # =========================================================
+    # DENSE SEARCH
+    # =========================================================
 
     def search(
         self,
@@ -140,6 +170,9 @@ class VectorRepository:
         if not self.collection_exists():
             return []
 
+        if limit < 1:
+            return []
+
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,
@@ -149,9 +182,9 @@ class VectorRepository:
 
         return results.points
 
-    # ==========================================================
-    # Retrieve All Points
-    # ==========================================================
+    # =========================================================
+    # RETRIEVE ALL POINTS
+    # =========================================================
 
     def get_all_points(
         self,
@@ -160,12 +193,15 @@ class VectorRepository:
         """
         Retrieve stored points from Qdrant.
 
-        Note:
-            Qdrant uses pagination for large collections.
-            This method currently retrieves up to `limit` points.
+        This method retrieves up to `limit` points.
+
+        For large collections, use pagination instead.
         """
 
         if not self.collection_exists():
+            return []
+
+        if limit < 1:
             return []
 
         points, _ = self.client.scroll(
@@ -177,9 +213,53 @@ class VectorRepository:
 
         return points
 
-    # ==========================================================
-    # Delete By Document
-    # ==========================================================
+    # =========================================================
+    # RETRIEVE PAGINATED POINTS
+    # =========================================================
+
+    def get_all_points_paginated(
+        self,
+        batch_size: int = 100,
+    ):
+        """
+        Retrieve all stored points using Qdrant pagination.
+
+        This is useful for operations such as rebuilding the
+        BM25 index or generating system statistics.
+        """
+
+        if not self.collection_exists():
+            return []
+
+        if batch_size < 1:
+            return []
+
+        all_points = []
+
+        offset = None
+
+        while True:
+
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            all_points.extend(points)
+
+            if next_offset is None:
+                break
+
+            offset = next_offset
+
+        return all_points
+
+    # =========================================================
+    # DELETE BY DOCUMENT
+    # =========================================================
 
     def delete_by_source(
         self,
@@ -200,7 +280,7 @@ class VectorRepository:
                         FieldCondition(
                             key="source",
                             match=MatchValue(
-                                value=source
+                                value=source,
                             ),
                         )
                     ]
@@ -210,9 +290,9 @@ class VectorRepository:
 
         return True
 
-    # ==========================================================
-    # Delete Everything
-    # ==========================================================
+    # =========================================================
+    # DELETE EVERYTHING
+    # =========================================================
 
     def delete_all_points(self):
         """
@@ -228,3 +308,4 @@ class VectorRepository:
                 filter=Filter(),
             ),
         )
+
