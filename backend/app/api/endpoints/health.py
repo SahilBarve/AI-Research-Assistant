@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.core.config import settings
+from app.core.config import get_settings
 from app.database.session import get_db
 from app.core.dependencies import vector_repository
 
@@ -66,9 +66,9 @@ def get_system_stats():
     points = vector_repository.get_all_points_paginated(batch_size=100)
 
     return {
-        "app_name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "embedding_model": settings.EMBEDDING_MODEL,
-        "llm_model": settings.LLM_MODEL,
+        "app_name": get_settings.APP_NAME,
+        "version": get_settings.APP_VERSION,
+        "embedding_model": get_settings.EMBEDDING_MODEL,
+        "llm_model": get_settings.LLM_MODEL,
         "total_vector_chunks": len(points),
     }

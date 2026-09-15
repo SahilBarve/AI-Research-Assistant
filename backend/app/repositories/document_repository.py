@@ -1,16 +1,15 @@
-
 """
 Document Repository.
 
-Handles document persistence operations.
+Responsible for persistence of document metadata in PostgreSQL
+and management of the physical uploaded files.
 
-Responsibilities:
-
-1. PostgreSQL document metadata
-2. Local document file storage
-
-The repository abstracts persistence details from
-DocumentService and API endpoints.
+Architecture:
+    DocumentService
+          ↓
+    DocumentRepository
+       ↙        ↘
+PostgreSQL    File System
 """
 
 from pathlib import Path
@@ -23,130 +22,60 @@ from app.models.domain import DocumentModel, DocumentStatus
 
 class DocumentRepository:
     """
-    Repository responsible for document persistence.
+    Repository for document metadata and uploaded files.
 
-    PostgreSQL stores document metadata while the local
-    uploads directory stores the actual document files.
+    PostgreSQL stores the document's metadata and processing state,
+    while the actual uploaded file remains in the uploads directory.
     """
 
     def __init__(self):
-        """
-        Initialize the repository.
-        """
-
         self.settings = get_settings()
 
-        self.upload_dir = Path(
-            self.settings.upload_dir
-        )
+        # Physical documents are stored outside PostgreSQL.
+        self.upload_dir = Path(self.settings.upload_dir)
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
 
-        self.upload_dir.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+    # ------------------------------------------------------------------
+    # File-system operations
+    # ------------------------------------------------------------------
 
-    # =========================================================
-    # FILESYSTEM OPERATIONS
-    # =========================================================
+    def exists(self, filename: str) -> bool:
+        """Check whether a physical document file exists."""
+        return (self.upload_dir / filename).exists()
 
-    def exists(
-        self,
-        filename: str,
-    ) -> bool:
-        """
-        Check whether the physical document file exists.
-        """
-
-        return (
-            self.upload_dir / filename
-        ).exists()
-
-    def get_path(
-        self,
-        filename: str,
-    ) -> Path:
-        """
-        Return the physical path of a document.
-        """
-
+    def get_path(self, filename: str) -> Path:
+        """Return the physical path of an uploaded document."""
         return self.upload_dir / filename
 
-    def delete(
-        self,
-        filename: str,
-    ) -> bool:
-        """
-        Delete the physical document file.
-
-        Returns
-        -------
-        bool
-            True if deleted.
-            False if the file does not exist.
-        """
-
-        file_path = (
-            self.upload_dir / filename
-        )
+    def delete_file(self, filename: str) -> bool:
+        """Delete the physical document file."""
+        file_path = self.upload_dir / filename
 
         if not file_path.exists():
             return False
 
         file_path.unlink()
-
         return True
 
-    # =========================================================
-    # DATABASE OPERATIONS
-    # =========================================================
-
-    def get_by_filename(
-        self,
-        db: Session,
-        filename: str,
-    ) -> DocumentModel | None:
-        """
-        Retrieve a document metadata record by filename.
-        """
-
-        return (
-            db.query(DocumentModel)
-            .filter(
-                DocumentModel.filename == filename
-            )
-            .first()
-        )
-
-    def exists_in_database(
-        self,
-        db: Session,
-        filename: str,
-    ) -> bool:
-        """
-        Check whether a document metadata record exists
-        in PostgreSQL.
-        """
-
-        return (
-            self.get_by_filename(
-                db=db,
-                filename=filename,
-            )
-            is not None
-        )
+    # ------------------------------------------------------------------
+    # PostgreSQL operations
+    # ------------------------------------------------------------------
 
     def create(
         self,
         db: Session,
+        *,
         filename: str,
         file_type: str,
         file_size: int,
         status: DocumentStatus = DocumentStatus.PENDING,
     ) -> DocumentModel:
         """
-        Create a new document metadata record.
-        """
+        Create a document metadata record in PostgreSQL.
 
+        The actual file is handled separately by the file-system
+        methods above.
+        """
         document = DocumentModel(
             filename=filename,
             file_type=file_type,
@@ -160,6 +89,41 @@ class DocumentRepository:
 
         return document
 
+    def get_by_id(
+        self,
+        db: Session,
+        document_id: str,
+    ) -> DocumentModel | None:
+        """Retrieve a document using its ID."""
+        return (
+            db.query(DocumentModel)
+            .filter(DocumentModel.id == document_id)
+            .first()
+        )
+
+    def get_by_filename(
+        self,
+        db: Session,
+        filename: str,
+    ) -> DocumentModel | None:
+        """Retrieve a document using its filename."""
+        return (
+            db.query(DocumentModel)
+            .filter(DocumentModel.filename == filename)
+            .first()
+        )
+
+    def get_all(
+        self,
+        db: Session,
+    ) -> list[DocumentModel]:
+        """Return all documents ordered by newest first."""
+        return (
+            db.query(DocumentModel)
+            .order_by(DocumentModel.created_at.desc())
+            .all()
+        )
+
     def update_status(
         self,
         db: Session,
@@ -170,13 +134,10 @@ class DocumentRepository:
         """
         Update document processing status.
 
-        Optionally stores an error message when processing fails.
+        error_message is populated when processing fails.
         """
-
         document.status = status
-
-        if error_message is not None:
-            document.error_message = error_message
+        document.error_message = error_message
 
         db.commit()
         db.refresh(document)
@@ -189,10 +150,7 @@ class DocumentRepository:
         document: DocumentModel,
         chunk_count: int,
     ) -> DocumentModel:
-        """
-        Update the number of indexed chunks for a document.
-        """
-
+        """Update the number of indexed chunks for a document."""
         document.chunk_count = chunk_count
 
         db.commit()
@@ -200,32 +158,11 @@ class DocumentRepository:
 
         return document
 
-    def delete_record(
+    def delete(
         self,
         db: Session,
         document: DocumentModel,
     ) -> None:
-        """
-        Delete a document metadata record from PostgreSQL.
-        """
-
+        """Delete document metadata from PostgreSQL."""
         db.delete(document)
         db.commit()
-
-    def list_documents(
-        self,
-        db: Session,
-    ) -> list[DocumentModel]:
-        """
-        Return all document metadata records ordered
-        by newest first.
-        """
-
-        return (
-            db.query(DocumentModel)
-            .order_by(
-                DocumentModel.created_at.desc()
-            )
-            .all()
-        )
-

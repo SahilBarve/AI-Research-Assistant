@@ -1,31 +1,64 @@
+"""
+Document API endpoints.
+
+Endpoints are responsible for HTTP concerns such as:
+- Request validation
+- File uploads
+- HTTP status codes
+- Returning API responses
+
+Business logic and persistence are delegated to services/repositories.
+"""
+
 import os
 from pathlib import Path
-from typing import List
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
+
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.orm import Session
 
-
-from app.core.config import settings
-from app.database.session import get_db
-from app.models.domain import DocumentModel, DocumentStatus
-from app.schemas.document import DocumentUploadResponse
+from app.core.config import get_settings
 from app.core.dependencies import get_document_service
-from app.services.document_service import DocumentService
+from app.database.session import get_db
 from app.exceptions.custom_exceptions import (
-    InvalidDocumentTypeException,
-    DocumentTooLargeException,
     DocumentNotFoundException,
+    DocumentTooLargeException,
+    InvalidDocumentTypeException,
+)
+from app.models.domain import DocumentStatus
+from app.schemas.document import DocumentUploadResponse
+from app.services.document_service import DocumentService
+
+
+# -------------------------------------------------------------------------
+# Configuration
+# -------------------------------------------------------------------------
+
+settings = get_settings()
+
+MAX_FILE_SIZE = settings.max_upload_size_mb * 1024 * 1024
+
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".docx",
+    ".txt",
+    ".md",
+    ".markdown",
+}
+
+
+# -------------------------------------------------------------------------
+# Router
+# -------------------------------------------------------------------------
+
+router = APIRouter(
+    prefix="/documents",
+    tags=["Documents"],
 )
 
-# Initialize APIRouter for Document endpoints
-router = APIRouter(prefix="/documents", tags=["Documents"])
 
-# Calculate maximum allowed file size in bytes based on application settings
-MAX_FILE_SIZE = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-
-# Set of allowed file extensions for document ingestion
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
-
+# -------------------------------------------------------------------------
+# Upload
+# -------------------------------------------------------------------------
 
 @router.post(
     "/upload",
@@ -38,74 +71,108 @@ async def upload_document(
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """
-    REST Endpoint: POST /api/v1/documents/upload
+    POST /api/v1/documents/upload
 
-    Handles file uploads, validates file type and size, persists document record
-    in PostgreSQL, and executes the extraction, chunking, and embedding pipeline.
+    Upload a document, create its PostgreSQL metadata record,
+    and execute the complete ingestion pipeline.
     """
-    # -------------------------------------------------------------------------
-    # STEP 1: Validate file presence and extension
-    # -------------------------------------------------------------------------
+
+    # ---------------------------------------------------------------------
+    # 1. Validate filename and extension
+    # ---------------------------------------------------------------------
+
     if not file.filename:
         raise InvalidDocumentTypeException()
 
-    extension = Path(file.filename).suffix.lower()
+    safe_filename = os.path.basename(file.filename)
+    extension = Path(safe_filename).suffix.lower()
+
     if extension not in ALLOWED_EXTENSIONS:
         raise InvalidDocumentTypeException()
 
-    # -------------------------------------------------------------------------
-    # STEP 2: Validate file size against configured limit
-    # -------------------------------------------------------------------------
+    # ---------------------------------------------------------------------
+    # 2. Read and validate file size
+    # ---------------------------------------------------------------------
+
     content = await file.read()
+
     if len(content) > MAX_FILE_SIZE:
         raise DocumentTooLargeException(
-            f"Maximum allowed file size is {settings.MAX_UPLOAD_SIZE_MB} MB."
+            f"Maximum allowed file size is "
+            f"{settings.max_upload_size_mb} MB."
         )
 
-    # Reset file pointer to byte 0 so it can be saved to disk
+    # Reset the UploadFile pointer so the service can save it.
     await file.seek(0)
 
-    # Sanitize filename against path traversal attacks
-    safe_filename = os.path.basename(file.filename)
+    # ---------------------------------------------------------------------
+    # 3. Check for duplicate document
+    # ---------------------------------------------------------------------
 
-    # Check if a document with the same name already exists
-    doc_service.check_duplicate(safe_filename)
+    repository = doc_service.repository
 
-    # -------------------------------------------------------------------------
-    # STEP 3: Save file to disk storage
-    # -------------------------------------------------------------------------
+    existing_document = repository.get_by_filename(
+        db,
+        safe_filename,
+    )
+
+    if existing_document:
+        doc_service.check_duplicate(safe_filename)
+
+    # ---------------------------------------------------------------------
+    # 4. Save the physical file
+    # ---------------------------------------------------------------------
+
     file_path = doc_service.save_uploaded_file(file)
 
-    # -------------------------------------------------------------------------
-    # STEP 4: Record PENDING/PROCESSING status in PostgreSQL
-    # -------------------------------------------------------------------------
-    db_doc = DocumentModel(
+    # ---------------------------------------------------------------------
+    # 5. Create PostgreSQL metadata record
+    # ---------------------------------------------------------------------
+
+    db_document = repository.create(
+        db,
         filename=safe_filename,
         file_type=extension.replace(".", ""),
         file_size=len(content),
         status=DocumentStatus.PROCESSING,
     )
-    db.add(db_doc)
-    db.commit()
 
-    # -------------------------------------------------------------------------
-    # STEP 5: Run indexing pipeline (Parse -> Chunk -> Embed -> Store -> BM25)
-    # -------------------------------------------------------------------------
+    # ---------------------------------------------------------------------
+    # 6. Execute ingestion pipeline
+    #
+    # Parse → Clean → Chunk → Embed → Qdrant → BM25
+    # ---------------------------------------------------------------------
+
     try:
         result = doc_service.index_document(
-            file_path=file_path, filename=safe_filename
+            file_path=file_path,
+            filename=safe_filename,
         )
 
-        # Update database entry to COMPLETED upon successful indexing
-        db_doc.status = DocumentStatus.COMPLETED
-        db_doc.chunk_count = result["chunks"]
-        db.commit()
-    except Exception as e:
-        # Mark status as FAILED in database if processing throws an error
-        db_doc.status = DocumentStatus.FAILED
-        db_doc.error_message = str(e)
-        db.commit()
-        raise e
+        # Update PostgreSQL after successful indexing.
+        repository.update_chunk_count(
+            db,
+            db_document,
+            result["chunks"],
+        )
+
+        repository.update_status(
+            db,
+            db_document,
+            DocumentStatus.COMPLETED,
+        )
+
+    except Exception as exc:
+        # Keep the failed document record so the frontend/admin
+        # page can show what went wrong.
+        repository.update_status(
+            db,
+            db_document,
+            DocumentStatus.FAILED,
+            error_message=str(exc),
+        )
+
+        raise
 
     return DocumentUploadResponse(
         message="Document uploaded and indexed successfully.",
@@ -113,81 +180,140 @@ async def upload_document(
     )
 
 
-@router.get("/", status_code=status.HTTP_200_OK)
-def list_documents(db: Session = Depends(get_db)):
-    """
-    REST Endpoint: GET /api/v1/documents/
+# -------------------------------------------------------------------------
+# List documents
+# -------------------------------------------------------------------------
 
-    Fetches all ingested documents from PostgreSQL ordered by creation date.
+@router.get(
+    "/",
+    status_code=status.HTTP_200_OK,
+)
+def list_documents(
+    db: Session = Depends(get_db),
+    doc_service: DocumentService = Depends(get_document_service),
+):
     """
-    docs = (
-        db.query(DocumentModel)
-        .order_by(DocumentModel.created_at.desc())
-        .all()
-    )
+    GET /api/v1/documents/
+
+    Return all document metadata stored in PostgreSQL.
+    """
+
+    repository = doc_service.repository
+
+    documents = repository.get_all(db)
+
     return [
         {
-            "id": d.id,
-            "filename": d.filename,
-            "file_type": d.file_type,
-            "file_size": d.file_size,
-            "status": d.status,
-            "chunk_count": d.chunk_count,
-            "created_at": d.created_at,
+            "id": document.id,
+            "filename": document.filename,
+            "file_type": document.file_type,
+            "file_size": document.file_size,
+            "status": document.status,
+            "chunk_count": document.chunk_count,
+            "created_at": document.created_at,
         }
-        for d in docs
+        for document in documents
     ]
 
 
-@router.get("/{filename}", status_code=status.HTTP_200_OK)
-def get_document(filename: str, db: Session = Depends(get_db)):
-    """
-    REST Endpoint: GET /api/v1/documents/{filename}
+# -------------------------------------------------------------------------
+# Get document
+# -------------------------------------------------------------------------
 
-    Retrieves metadata for a single specified document from PostgreSQL.
+@router.get(
+    "/{filename}",
+    status_code=status.HTTP_200_OK,
+)
+def get_document(
+    filename: str,
+    db: Session = Depends(get_db),
+    doc_service: DocumentService = Depends(get_document_service),
+):
     """
+    GET /api/v1/documents/{filename}
+
+    Return metadata for a specific document.
+    """
+
     safe_filename = os.path.basename(filename)
-    doc = (
-        db.query(DocumentModel)
-        .filter(DocumentModel.filename == safe_filename)
-        .first()
+
+    repository = doc_service.repository
+
+    document = repository.get_by_filename(
+        db,
+        safe_filename,
     )
 
-    if not doc:
+    if not document:
         raise DocumentNotFoundException()
 
-    return doc
+    return document
 
 
-@router.post("/{filename}/reindex", status_code=status.HTTP_200_OK)
+# -------------------------------------------------------------------------
+# Reindex document
+# -------------------------------------------------------------------------
+
+@router.post(
+    "/{filename}/reindex",
+    status_code=status.HTTP_200_OK,
+)
 def reindex_document(
     filename: str,
     db: Session = Depends(get_db),
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """
-    REST Endpoint: POST /api/v1/documents/{filename}/reindex
+    POST /api/v1/documents/{filename}/reindex
 
-    Re-processes an existing document stored on disk without re-uploading,
-    updating vectors in Qdrant and syncing the BM25 index.
+    Re-process an existing document and rebuild its vectors/BM25 index.
     """
+
     safe_filename = os.path.basename(filename)
-    doc = (
-        db.query(DocumentModel)
-        .filter(DocumentModel.filename == safe_filename)
-        .first()
+
+    repository = doc_service.repository
+
+    document = repository.get_by_filename(
+        db,
+        safe_filename,
     )
 
-    if not doc:
+    if not document:
         raise DocumentNotFoundException()
 
-    # Re-index the document via DocumentService
-    result = doc_service.reindex_document(safe_filename)
+    # Mark document as processing while reindexing.
+    repository.update_status(
+        db,
+        document,
+        DocumentStatus.PROCESSING,
+    )
 
-    # Update metadata record in database
-    doc.chunk_count = result["chunks"]
-    doc.status = DocumentStatus.COMPLETED
-    db.commit()
+    try:
+        result = doc_service.reindex_document(
+            safe_filename,
+        )
+
+        repository.update_chunk_count(
+            db,
+            document,
+            result["chunks"],
+        )
+
+        repository.update_status(
+            db,
+            document,
+            DocumentStatus.COMPLETED,
+        )
+
+    except Exception as exc:
+        repository.update_status(
+            db,
+            document,
+            DocumentStatus.FAILED,
+            error_message=str(exc),
+        )
+
+        raise
 
     return {
         "message": "Document re-indexed successfully.",
@@ -196,34 +322,52 @@ def reindex_document(
     }
 
 
-@router.delete("/{filename}", status_code=status.HTTP_200_OK)
+# -------------------------------------------------------------------------
+# Delete document
+# -------------------------------------------------------------------------
+
+@router.delete(
+    "/{filename}",
+    status_code=status.HTTP_200_OK,
+)
 def delete_document(
     filename: str,
     db: Session = Depends(get_db),
     doc_service: DocumentService = Depends(get_document_service),
 ):
     """
-    REST Endpoint: DELETE /api/v1/documents/{filename}
+    DELETE /api/v1/documents/{filename}
 
-    Completely purges a document across disk storage, Qdrant vectors,
-    BM25 memory index, and PostgreSQL metadata.
+    Completely remove a document from:
+    - File storage
+    - Qdrant
+    - BM25
+    - PostgreSQL
     """
+
     safe_filename = os.path.basename(filename)
-    doc = (
-        db.query(DocumentModel)
-        .filter(DocumentModel.filename == safe_filename)
-        .first()
+
+    repository = doc_service.repository
+
+    document = repository.get_by_filename(
+        db,
+        safe_filename,
     )
 
-    if not doc:
+    if not document:
         raise DocumentNotFoundException()
 
-    # Delete from filesystem, Qdrant vector store, and BM25 index
+    # Remove vectors and rebuild BM25 through the service.
     doc_service.delete_document(safe_filename)
 
-    # Delete relational record from PostgreSQL
-    db.delete(doc)
-    db.commit()
+    # Remove physical file.
+    repository.delete_file(safe_filename)
+
+    # Remove PostgreSQL metadata.
+    repository.delete(
+        db,
+        document,
+    )
 
     return {
         "message": "Document deleted successfully.",
