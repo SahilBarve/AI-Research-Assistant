@@ -82,7 +82,13 @@ def search(
                     None,
                 ),
                 score=float(
-                    result.get("score", 0.0)
+                    result.get(
+                        "reranker_score",
+                        result.get(
+                            "rrf_score",
+                            0.0,
+                        ),
+                    )
                 ),
             )
         )
