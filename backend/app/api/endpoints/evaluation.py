@@ -8,6 +8,7 @@ for the AI Research Assistant.
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import get_hybrid_retriever
+from app.services.evaluation_service import EvaluationService
 from app.services.retrieval.hybrid_retrieval import HybridRetriever
 
 
@@ -17,26 +18,45 @@ router = APIRouter(
 )
 
 
+# ============================================================
+# EVALUATION
+# ============================================================
+
+@router.get("/run")
+def run_evaluation(
+    retriever: HybridRetriever = Depends(
+        get_hybrid_retriever
+    ),
+):
+    """
+    Run the retrieval evaluation benchmark.
+
+    Evaluates the current hybrid + reranker pipeline
+    against the manually curated evaluation dataset.
+    """
+
+    evaluation_service = EvaluationService(
+        retriever= retriever,
+    )
+
+    return evaluation_service.evaluate()
+
+
+# ============================================================
+# RETRIEVAL STATISTICS
+# ============================================================
+
 @router.get("/stats")
 def get_evaluation_stats(
-    retriever: HybridRetriever = Depends(get_hybrid_retriever),
+    retriever: HybridRetriever = Depends(
+        get_hybrid_retriever
+    ),
 ):
     """
     Return current retrieval/index statistics.
-
-    This endpoint is intentionally lightweight for now.
-    Detailed benchmark metrics will be added to the
-    evaluation framework later.
     """
+
     return {
         "retrieval": retriever.get_stats(),
-        "metrics": {
-            "recall_at_5": None,
-            "recall_at_10": None,
-            "mrr": None,
-            "ndcg": None,
-            "citation_accuracy": None,
-            "groundedness": None,
-        },
         "message": "Evaluation statistics endpoint is operational.",
     }

@@ -1,4 +1,3 @@
-
 """
 Hybrid Retrieval Service.
 
@@ -47,6 +46,83 @@ class HybridRetriever:
         self.embedding_service = embedding_service
         self.bm25_repository = bm25_repository
         self.reranker = reranker
+
+    # =========================================================
+    # DENSE RETRIEVAL
+    # =========================================================
+
+    def retrieve_dense(
+        self,
+        query: str,
+        limit: int = 30,
+    ):
+        """
+        Perform dense vector retrieval.
+
+        Returns results in descending vector similarity order.
+        """
+
+        if not query or not query.strip():
+            return []
+
+        if limit < 1:
+            return []
+
+        query_embedding = (
+            self.embedding_service.embed_text(query)
+        )
+
+        dense_points = self.vector_repository.search(
+            query_vector=query_embedding,
+            limit=limit,
+        )
+
+        dense_results = []
+
+        for point in dense_points:
+
+            if not point.payload:
+                continue
+
+            try:
+                chunk = self._payload_to_chunk(
+                    point.payload
+                )
+            except (KeyError, TypeError):
+                continue
+
+            dense_results.append(
+                {
+                    "chunk": chunk,
+                    "score": float(point.score),
+                }
+            )
+
+        return dense_results
+
+    # =========================================================
+    # BM25 RETRIEVAL
+    # =========================================================
+
+    def retrieve_bm25(
+        self,
+        query: str,
+        limit: int = 30,
+    ):
+        """
+        Perform BM25 lexical retrieval.
+        """
+
+        if not query or not query.strip():
+            return []
+
+        if limit < 1:
+            return []
+
+        return self.bm25_repository.search(
+            query=query,
+            limit=limit,
+        )
 
     # =========================================================
     # RRF FUSION
@@ -135,6 +211,48 @@ class HybridRetriever:
         return ranked_results
 
     # =========================================================
+    # RRF RETRIEVAL
+    # =========================================================
+
+    def retrieve_rrf(
+        self,
+        query: str,
+        retrieval_limit: int = 30,
+        rrf_limit: int = 20,
+    ):
+        """
+        Perform dense + BM25 retrieval followed by RRF fusion.
+
+        This exposes the RRF stage directly for evaluation.
+        """
+
+        if not query or not query.strip():
+            return []
+
+        if retrieval_limit < 1:
+            return []
+
+        if rrf_limit < 1:
+            return []
+
+        dense_results = self.retrieve_dense(
+            query=query,
+            limit=retrieval_limit,
+        )
+
+        bm25_results = self.retrieve_bm25(
+            query=query,
+            limit=retrieval_limit,
+        )
+
+        fused_results = self._rrf_fusion(
+            dense_results=dense_results,
+            bm25_results=bm25_results,
+        )
+
+        return fused_results[:rrf_limit]
+
+    # =========================================================
     # RETRIEVAL
     # =========================================================
 
@@ -147,102 +265,60 @@ class HybridRetriever:
         """
         Perform dense retrieval and BM25 retrieval,
         followed by RRF fusion.
+
+        Kept as the main production retrieval method.
         """
 
-        if not query or not query.strip():
-            return []
-
-        if retrieval_limit < 1:
-            return []
-
-        if rrf_limit < 1:
-            return []
-
-        # -----------------------------------------------------
-        # Dense Retrieval
-        # -----------------------------------------------------
-
-        query_embedding = (
-            self.embedding_service.embed_text(
-                query
-            )
-        )
-
-        dense_points = self.vector_repository.search(
-            query_vector=query_embedding,
-            limit=retrieval_limit,
-        )
-
-        dense_results = []
-
-        for point in dense_points:
-
-            if not point.payload:
-                continue
-
-            try:
-                chunk = self._payload_to_chunk(
-                    point.payload
-                )
-            except (KeyError, TypeError):
-                # Ignore malformed Qdrant payloads rather
-                # than breaking the entire retrieval pipeline.
-                continue
-
-            dense_results.append(
-                {
-                    "chunk": chunk,
-                    "score": point.score,
-                }
-            )
-
-        # -----------------------------------------------------
-        # BM25 Retrieval
-        # -----------------------------------------------------
-
-        bm25_results = self.bm25_repository.search(
+        return self.retrieve_rrf(
             query=query,
-            limit=retrieval_limit,
+            retrieval_limit=retrieval_limit,
+            rrf_limit=rrf_limit,
         )
-
-        # -----------------------------------------------------
-        # RRF Fusion
-        # -----------------------------------------------------
-
-        fused_results = self._rrf_fusion(
-            dense_results=dense_results,
-            bm25_results=bm25_results,
-        )
-
-        return fused_results[:rrf_limit]
 
     # =========================================================
     # SEARCH + RERANKING
     # =========================================================
 
     def search(
-        self,
-        query: str,
-        limit: int = 5,
-        retrieval_limit: int = 30,
-        rerank_limit: int = 20,
-    ):
+    self,
+    query: str,
+    limit: int = 5,
+    retrieval_limit: int = 30,
+    rerank_limit: int = 20,
+):
         """
         Execute the complete hybrid retrieval pipeline.
 
         Pipeline:
 
             Query
-              ↓
+            ↓
         Dense Retrieval
-              +
+            +
         BM25 Retrieval
-              ↓
-          RRF Fusion
-              ↓
+            ↓
+        RRF Fusion
+            ↓
+        Candidate Limiting
+            ↓
         Cross-Encoder Reranking
-              ↓
-             Top-K
+            ↓
+            Top-K
+
+        Args:
+            query:
+                User search query.
+
+            limit:
+                Final number of results returned.
+
+            retrieval_limit:
+                Number of candidates retrieved independently
+                from dense and BM25 retrieval.
+
+            rerank_limit:
+                Number of RRF candidates sent to the
+                Cross-Encoder.
         """
 
         if not query or not query.strip():
@@ -261,7 +337,7 @@ class HybridRetriever:
         # Hybrid Retrieval + RRF
         # -----------------------------------------------------
 
-        rrf_results = self.retrieve(
+        rrf_results = self.retrieve_rrf(
             query=query,
             retrieval_limit=retrieval_limit,
             rrf_limit=rerank_limit,
@@ -278,6 +354,7 @@ class HybridRetriever:
             query=query,
             results=rrf_results,
             limit=limit,
+            candidate_limit=rerank_limit,
         )
 
         return reranked_results
@@ -289,20 +366,12 @@ class HybridRetriever:
     def get_stats(self):
         """
         Return basic retrieval/index statistics.
-
-        Repository-specific implementation details remain
-        inside the retrieval layer instead of being exposed
-        directly to API endpoints.
         """
 
         stats = {
             "vector_chunks": 0,
             "bm25_chunks": 0,
         }
-
-        # -----------------------------------------------------
-        # Vector statistics
-        # -----------------------------------------------------
 
         if hasattr(
             self.vector_repository,
@@ -318,10 +387,6 @@ class HybridRetriever:
             stats["vector_chunks"] = (
                 self.vector_repository.get_collection_count()
             )
-
-        # -----------------------------------------------------
-        # BM25 statistics
-        # -----------------------------------------------------
 
         if hasattr(
             self.bm25_repository,
@@ -360,4 +425,3 @@ class HybridRetriever:
                 "page_number"
             ),
         )
-

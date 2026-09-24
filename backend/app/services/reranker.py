@@ -1,102 +1,108 @@
-from typing import List, Dict
+from typing import Any
 
 from sentence_transformers import CrossEncoder
 
 
 class RerankerService:
     """
-    Reranks retrieved document chunks using a Cross-Encoder.
+    Cross-Encoder based reranking service.
 
-    The Cross-Encoder receives the query and document together
-    and predicts their semantic relevance.
+    Takes candidate results from the hybrid retriever, scores them
+    against the user's query, and returns the top reranked results.
 
-    RRF and reranker scores are preserved so that different
-    ranking strategies can be evaluated independently.
+    The original retrieval metadata is preserved.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        max_candidates: int = 20,
+        batch_size: int = 16,
+    ):
+        self.model_name = model_name
+        self.max_candidates = max_candidates
+        self.batch_size = batch_size
 
-        self.model = CrossEncoder(
-            "cross-encoder/ms-marco-MiniLM-L-6-v2"
-        )
+        self.model = CrossEncoder(model_name)
 
     def rerank(
         self,
         query: str,
-        results: List[Dict],
+        results: list[dict[str, Any]],
         limit: int = 5,
-    ) -> List[Dict]:
+        candidate_limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Rerank retrieval results using the Cross-Encoder.
+
+        Args:
+            query: User's search/query text.
+            results: Candidate retrieval results.
+            limit: Number of final results to return.
+            candidate_limit: Maximum number of candidates sent
+                to the Cross-Encoder.
+
+        Returns:
+            Reranked results with original metadata preserved and
+            an additional `reranker_score` field.
+        """
 
         if not results:
             return []
 
-        # =================================================
-        # CREATE QUERY-DOCUMENT PAIRS
-        # =================================================
+        if candidate_limit is None:
+            candidate_limit = self.max_candidates
 
-        pairs = []
+        if candidate_limit < 1:
+            return []
 
-        for result in results:
+        if limit < 1:
+            return []
 
-            chunk = result["chunk"]
+        candidate_count = min(candidate_limit, len(results))
 
-            pairs.append(
-                (
-                    query,
-                    chunk.text,
-                )
+        candidates = results[:candidate_count]
+
+        pairs = [
+            (
+                query,
+                result["chunk"].text,
             )
+            for result in candidates
+        ]
 
-        # =================================================
-        # CALCULATE CROSS-ENCODER SCORES
-        # =================================================
-
-        scores = self.model.predict(pairs)
-
-        # =================================================
-        # ATTACH SCORES
-        # =================================================
-
-        reranked_results = []
-
-        for result, score in zip(
-            results,
-            scores,
-        ):
-
-            rrf_score = result.get(
-                "score",
-                result.get(
-                    "rrf_score",
-                    0.0,
-                ),
-            )
-
-            reranked_results.append(
-                {
-                    "chunk": result["chunk"],
-
-                    "rrf_score": float(
-                        rrf_score
-                    ),
-
-                    "reranker_score": float(
-                        score
-                    ),
-                }
-            )
-
-        # =================================================
-        # SORT BY CROSS-ENCODER SCORE
-        # =================================================
-
-        reranked_results.sort(
-            key=lambda item: item["reranker_score"],
-            reverse=True,
+        scores = self.model.predict(
+            pairs,
+            batch_size=self.batch_size,
+            show_progress_bar=False,
+            convert_to_numpy=True,
         )
 
-        # =================================================
-        # RETURN TOP-K
-        # =================================================
+        reranked_results: list[dict[str, Any]] = []
+
+        for result, score in zip(candidates, scores):
+
+            # Preserve the complete original result.
+            reranked_result = dict(result)
+
+            # Preserve the original retrieval score as rrf_score.
+            if "rrf_score" not in reranked_result:
+                original_score = reranked_result.get("score", 0.0)
+
+                try:
+                    reranked_result["rrf_score"] = float(original_score)
+                except (TypeError, ValueError):
+                    reranked_result["rrf_score"] = 0.0
+
+            # Add Cross-Encoder score.
+            reranked_result["reranker_score"] = float(score)
+
+            reranked_results.append(reranked_result)
+
+        # Highest Cross-Encoder score first.
+        reranked_results.sort(
+            key=lambda result: result["reranker_score"],
+            reverse=True,
+        )
 
         return reranked_results[:limit]
