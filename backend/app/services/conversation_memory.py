@@ -9,147 +9,138 @@ PostgreSQL or another persistent store without requiring
 changes to the ChatService or Chat API.
 """
 
+
 class ConversationMemory:
     """
     Manages conversation history using session IDs.
 
-    ```
     Each session contains an ordered sequence of messages:
 
         {
             "role": "user" | "assistant",
             "content": str
         }
-
-    Example:
-
-        session_id
-            ├── user message
-            ├── assistant message
-            ├── user message
-            └── assistant message
     """
 
-def __init__(self):
-    """
-    Initialize empty conversation storage.
-    """
+    def __init__(self):
+        """
+        Initialize empty conversation storage.
+        """
 
-    self.sessions = {}
+        self.sessions = {}
 
-def get_history(
-    self,
-    session_id: str,
-) -> list[dict[str, str]]:
-    """
-    Return the complete conversation history for a session.
+    def get_history(
+        self,
+        session_id: str,
+    ) -> list[dict[str, str]]:
+        """
+        Return the complete conversation history for a session.
 
-    If the session does not exist, an empty list is returned.
-    """
+        If the session does not exist, an empty list is returned.
+        """
 
-    return self.sessions.get(session_id, [])
+        return self.sessions.get(session_id, [])
 
-def add_message(
-    self,
-    session_id: str,
-    role: str,
-    content: str,
-) -> None:
-    """
-    Add a message to a conversation.
-    """
+    def add_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+    ) -> None:
+        """
+        Add a message to a conversation.
+        """
 
-    if role not in {"user", "assistant"}:
-        raise ValueError(
-            "Message role must be either 'user' or 'assistant'."
+        if role not in {"user", "assistant"}:
+            raise ValueError(
+                "Message role must be either 'user' or 'assistant'."
+            )
+
+        if session_id not in self.sessions:
+            self.sessions[session_id] = []
+
+        self.sessions[session_id].append(
+            {
+                "role": role,
+                "content": content,
+            }
         )
 
-    if session_id not in self.sessions:
-        self.sessions[session_id] = []
+    def add_user_message(
+        self,
+        session_id: str,
+        message: str,
+    ) -> None:
+        """
+        Add a user message to the conversation.
+        """
 
-    self.sessions[session_id].append(
-        {
-            "role": role,
-            "content": content,
-        }
-    )
+        self.add_message(
+            session_id=session_id,
+            role="user",
+            content=message,
+        )
 
-def add_user_message(
-    self,
-    session_id: str,
-    message: str,
-) -> None:
-    """
-    Add a user message to the conversation.
-    """
+    def add_assistant_message(
+        self,
+        session_id: str,
+        message: str,
+    ) -> None:
+        """
+        Add an assistant response to the conversation.
+        """
 
-    self.add_message(
-        session_id=session_id,
-        role="user",
-        content=message,
-    )
+        self.add_message(
+            session_id=session_id,
+            role="assistant",
+            content=message,
+        )
 
-def add_assistant_message(
-    self,
-    session_id: str,
-    message: str,
-) -> None:
-    """
-    Add an assistant response to the conversation.
-    """
+    def clear_session(
+        self,
+        session_id: str,
+    ) -> None:
+        """
+        Delete all messages belonging to a conversation session.
+        """
 
-    self.add_message(
-        session_id=session_id,
-        role="assistant",
-        content=message,
-    )
+        self.sessions.pop(
+            session_id,
+            None,
+        )
 
-def clear_session(
-    self,
-    session_id: str,
-) -> None:
-    """
-    Delete all messages belonging to a conversation session.
-    """
+    def format_history(
+        self,
+        session_id: str,
+        max_messages: int = 10,
+    ) -> str:
+        """
+        Convert conversation history into LLM-ready text.
 
-    self.sessions.pop(
-        session_id,
-        None,
-    )
+        Only the latest `max_messages` messages are included.
+        """
 
-def format_history(
-    self,
-    session_id: str,
-    max_messages: int = 10,
-) -> str:
-    """
-    Convert conversation history into LLM-ready text.
+        history = self.get_history(session_id)
 
-    Only the latest `max_messages` messages are included.
-    """
+        recent_history = history[-max_messages:]
 
-    history = self.get_history(session_id)
+        if not recent_history:
+            return "No previous conversation."
 
-    recent_history = history[-max_messages:]
+        formatted_messages: list[str] = []
 
-    if not recent_history:
-        return "No previous conversation."
+        for message in recent_history:
+            role = message["role"]
+            content = message["content"]
 
-    formatted_messages: list[str] = []
+            if role == "user":
+                formatted_messages.append(
+                    f"User: {content}"
+                )
 
-    for message in recent_history:
-        role = message["role"]
-        content = message["content"]
+            elif role == "assistant":
+                formatted_messages.append(
+                    f"Assistant: {content}"
+                )
 
-        if role == "user":
-            formatted_messages.append(
-                f"User: {content}"
-            )
-
-        elif role == "assistant":
-            formatted_messages.append(
-                f"Assistant: {content}"
-            )
-
-    return "\n".join(formatted_messages)
- 
+        return "\n".join(formatted_messages)
