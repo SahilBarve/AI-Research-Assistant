@@ -159,5 +159,10 @@ class CitationValidator:
             " ",
             cleaned_answer,
         )
-
+        # Remove spaces before punctuation created by citation removal.
+        cleaned_answer = re.sub(
+            r"\s+([.,!?;:])",
+            r"\1",
+            cleaned_answer,
+        )
         return cleaned_answer.strip()
