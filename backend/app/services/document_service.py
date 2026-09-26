@@ -180,6 +180,7 @@ class DocumentService:
     # BM25 index
     # ------------------------------------------------------------------
 
+   
     def get_all_stored_chunks(self) -> list[DocumentChunk]:
         """
         Fetch all vector payloads using pagination.
@@ -192,19 +193,25 @@ class DocumentService:
         chunks = []
 
         for point in stored_points:
-            if not point.get("text"):
+            # Qdrant stores our document data inside the point payload.
+            payload = point.payload
+
+            # Skip points that do not contain a valid payload.
+            if not payload or not payload.get("text"):
                 continue
 
             chunks.append(
                 DocumentChunk(
-                    chunk_id=point["chunk_id"],
-                    text=point["text"],
-                    source=point["source"],
-                    page_number=point.get("page_number"),
+                    chunk_id=payload["chunk_id"],
+                    text=payload["text"],
+                    source=payload["source"],
+                    page_number=payload.get("page_number"),
                 )
             )
 
         return chunks
+
+
 
     def rebuild_bm25_index(self) -> int:
         """Rebuild the in-memory BM25 index from Qdrant data."""
