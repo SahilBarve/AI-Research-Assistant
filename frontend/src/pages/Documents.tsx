@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import {
   getDocuments,
   uploadDocument,
+  deleteDocument,
+  reindexDocument,
 } from '../services/api'
 
 // Define the structure of a document returned by the backend.
@@ -31,6 +33,12 @@ function Documents() {
 
   // Store whether a document is currently being uploaded.
   const [uploading, setUploading] = useState(false)
+
+  // Store the filename of the document currently being deleted.
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Store the filename of the document currently being reindexed.
+  const [reindexing, setReindexing] = useState<string | null>(null)
 
   // Fetch all documents from the backend.
   const loadDocuments = () => {
@@ -97,12 +105,53 @@ function Documents() {
     }
   }
 
+  // Delete a document from the backend.
+  const handleDelete = async (filename: string) => {
+    try {
+      // Store the filename so we can show which document is being deleted.
+      setDeleting(filename)
+
+      // Delete the document through the FastAPI backend.
+      await deleteDocument(filename)
+
+      // Refresh the document list after successful deletion.
+      loadDocuments()
+    } catch (error) {
+      // Display an error if the deletion fails.
+      console.error('Failed to delete document:', error)
+    } finally {
+      // Clear the deleting state.
+      setDeleting(null)
+    }
+  }
+
+  // Reindex an existing document using the backend pipeline.
+  const handleReindex = async (filename: string) => {
+    try {
+      // Store the filename so we can show which document is being reindexed.
+      setReindexing(filename)
+
+      // Re-process the document through the FastAPI backend.
+      await reindexDocument(filename)
+
+      // Refresh the document list after successful reindexing.
+      loadDocuments()
+    } catch (error) {
+      // Display an error if the reindex operation fails.
+      console.error('Failed to reindex document:', error)
+    } finally {
+      // Clear the reindexing state.
+      setReindexing(null)
+    }
+  }
+
   return (
     <section className="documents">
 
       {/* Page heading and description. */}
       <div className="documents-header">
         <h1>Documents</h1>
+
         <p>
           Manage the documents used by your AI research assistant.
         </p>
@@ -158,6 +207,28 @@ function Documents() {
 
               {/* Current processing status. */}
               <p>Status: {document.status}</p>
+
+              {/* Reindex the document. */}
+              <button
+                type="button"
+                onClick={() => handleReindex(document.filename)}
+                disabled={reindexing === document.filename}
+              >
+                {reindexing === document.filename
+                  ? 'Reindexing...'
+                  : 'Reindex'}
+              </button>
+
+              {/* Delete the document. */}
+              <button
+                type="button"
+                onClick={() => handleDelete(document.filename)}
+                disabled={deleting === document.filename}
+              >
+                {deleting === document.filename
+                  ? 'Deleting...'
+                  : 'Delete'}
+              </button>
 
             </div>
           ))}

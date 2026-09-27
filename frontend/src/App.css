@@ -1,129 +1,249 @@
+
+/* =========================================================
+   GLOBAL APPLICATION LAYOUT
+   ========================================================= */
+
 /* Main application layout.
    Flexbox places the sidebar and main content side-by-side. */
 .app {
   display: flex;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #f8fafc;
 }
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
 
 /* Left navigation sidebar. */
 .sidebar {
-  width: 240px;
-  padding: 24px;
-  background: #1e293b;
+  width: 250px;
+  min-height: 100vh;
+  padding: 28px 20px;
+  background: #0f172a;
   color: white;
+  box-sizing: border-box;
 }
 
 /* Application name inside the sidebar. */
 .sidebar h2 {
-  margin-bottom: 30px;
+  margin: 0 0 32px;
+  padding: 0 10px;
   font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 /* Navigation links are displayed vertically. */
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 /* Individual navigation links. */
 .sidebar a {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 8px;
   color: #cbd5e1;
   text-decoration: none;
-  padding: 10px;
-  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 /* Change the link appearance when the mouse is over it. */
 .sidebar a:hover {
-  background: #334155;
+  background: #1e293b;
   color: white;
 }
+
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
 
 /* Main content area. */
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: 40px;
+  box-sizing: border-box;
 }
 
-/* Main page heading. */
-.main-content h1 {
-  margin-bottom: 12px;
-}
 
-/* Main page description. */
-.main-content p {
-  color: #64748b;
-}
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+
 /* Dashboard container. */
 .dashboard {
   max-width: 1100px;
+  margin: 0 auto;
 }
 
 /* Dashboard heading section. */
 .dashboard-header {
-  margin-bottom: 30px;
+  margin-bottom: 32px;
 }
 
 /* Main dashboard heading. */
 .dashboard-header h1 {
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.8px;
 }
 
 /* Dashboard description. */
 .dashboard-header p {
+  margin: 0;
   color: #64748b;
+  font-size: 15px;
 }
+
 
 /* Container for all dashboard cards.
    Flexbox places the cards next to each other. */
 .dashboard-cards {
-  display: flex;/*This tells CSS: "Arrange the children horizontally."*/
+  display: flex;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 /* Individual dashboard card. */
 .dashboard-card {
-  flex: 1; /* flex :1 means"Let each card take an equal amount of available space."*/
+  flex: 1;
+  min-width: 200px;
   padding: 24px;
   background: white;
-  border-radius: 10px;
   border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Slightly lift the card when the mouse is over it. */
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 
 /* Card title. */
 .dashboard-card h3 {
-  margin-bottom: 12px;
-  color: #475569;
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* Card number. */
 .dashboard-card p {
+  margin: 0;
+  color: #0f172a;
   font-size: 32px;
-  font-weight: bold;
+  font-weight: 700;
 }
 
+
+/* =========================================================
+   DOCUMENTS PAGE
+   ========================================================= */
 
 /* Documents page container. */
 .documents {
   max-width: 1100px;
+  margin: 0 auto;
 }
 
 /* Documents page heading section. */
 .documents-header {
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 /* Documents page heading. */
 .documents-header h1 {
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
 }
 
 /* Documents page description. */
 .documents-header p {
+  margin: 0;
   color: #64748b;
+  font-size: 15px;
 }
+
+
+/* =========================================================
+   DOCUMENT UPLOAD
+   ========================================================= */
+
+/* Upload section containing the file picker and button. */
+.document-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* File picker. */
+.document-upload input[type="file"] {
+  flex: 1;
+  padding: 9px;
+  color: #475569;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+/* General button styling. */
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+/* Upload button. */
+.document-upload button {
+  background: #2563eb;
+  color: white;
+}
+
+/* Upload button hover state. */
+.document-upload button:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* Disabled buttons. */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+
+/* =========================================================
+   DOCUMENT LIST
+   ========================================================= */
 
 /* Container for all document cards. */
 .documents-list {
@@ -136,14 +256,14 @@
 .document-card {
   display: grid;
 
-  /* Create columns for the document information. */
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  /* Create columns for document information and actions. */
+  grid-template-columns: 2fr 1fr 1fr 1fr auto auto;
 
   /* Add space between the columns. */
-  gap: 20px;
+  gap: 16px;
 
   /* Add space inside the card. */
-  padding: 20px;
+  padding: 18px 20px;
 
   /* Give the card a clean white background. */
   background: white;
@@ -152,22 +272,1297 @@
   border: 1px solid #e2e8f0;
 
   /* Slightly round the corners. */
-  border-radius: 10px;
+  border-radius: 12px;
+
+  /* Add a subtle shadow. */
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 
   /* Align all content vertically in the center. */
   align-items: center;
+
+  /* Smooth hover animation. */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Highlight the document card when the mouse is over it. */
+.document-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 /* Document filename. */
 .document-card h3 {
   margin: 0;
-  font-size: 16px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 /* Document information text. */
 .document-card p {
   margin: 0;
   color: #64748b;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   DOCUMENT ACTION BUTTONS
+   ========================================================= */
+
+/* Reindex button. */
+.document-card button:first-of-type {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Reindex button hover state. */
+.document-card button:first-of-type:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+/* Delete button. */
+.document-card button:last-of-type {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Delete button hover state. */
+.document-card button:last-of-type:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+
+/* =========================================================
+   RESPONSIVE LAYOUT
+   ========================================================= */
+
+/* Adjust the application for smaller screens. */
+@media (max-width: 900px) {
+
+  /* Make the sidebar slightly narrower. */
+  .sidebar {
+    width: 210px;
+  }
+
+  /* Reduce main content spacing. */
+  .main-content {
+    padding: 28px;
+  }
+
+  /* Stack document information on smaller screens. */
+  .document-card {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Allow upload controls to wrap. */
+  .document-upload {
+    flex-wrap: wrap;
+  }
+}
+
+
+/* Adjust the application for mobile screens. */
+@media (max-width: 600px) {
+
+  /* Stack the application vertically. */
+  .app {
+    flex-direction: column;
+  }
+
+  /* Make the sidebar full width. */
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+  }
+
+  /* Stack navigation links horizontally. */
+  .sidebar nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  /* Reduce main content spacing on mobile. */
+  .main-content {
+    padding: 20px;
+  }
+
+  /* Stack document information into one column. */
+  .document-card {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stack upload controls vertically. */
+  .document-upload {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* =========================================================
+   RESEARCH WORKSPACE
+   ========================================================= */
+
+/* Main research page container. */
+.research {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+/* Research page heading. */
+.research-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+
+/* Research heading text. */
+.research-header h1 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+
+/* Research description. */
+.research-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+
+/* New conversation button. */
+.new-conversation-button {
+  background: #0f172a;
+  color: white;
+}
+
+
+/* New conversation hover state. */
+.new-conversation-button:hover {
+  background: #1e293b;
+}
+
+
+/* Main research card. */
+.research-container {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 180px);
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+
+/* Conversation area. */
+.conversation {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+
+/* Empty state shown before the first question. */
+.empty-research {
+  max-width: 650px;
+  margin: 80px auto;
+  text-align: center;
+}
+
+
+/* Empty state heading. */
+.empty-research h2 {
+  margin-bottom: 10px;
+  color: #0f172a;
+  font-size: 24px;
+}
+
+
+/* Empty state description. */
+.empty-research p {
+  margin-bottom: 24px;
+  color: #64748b;
+}
+
+
+/* Example questions. */
+.research-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+/* Individual example question. */
+.research-examples span {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
   font-size: 14px;
 }
 
+
+/* =========================================================
+   CHAT MESSAGES
+   ========================================================= */
+
+/* Base message container. */
+.message {
+  max-width: 850px;
+  margin-bottom: 24px;
+}
+
+
+/* User messages are placed on the right. */
+.user-message {
+  margin-left: auto;
+}
+
+
+/* Assistant messages stay on the left. */
+.assistant-message {
+  margin-right: auto;
+}
+
+
+/* Message role label. */
+.message-role {
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* Message content box. */
+.message-content {
+  padding: 14px 16px;
+  border-radius: 10px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+
+/* User message styling. */
+.user-message .message-content {
+  background: #2563eb;
+  color: white;
+}
+
+
+/* Assistant message styling. */
+.assistant-message .message-content {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+
+/* Loading text. */
+.loading-message {
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   CITATIONS
+   ========================================================= */
+
+/* Citation section. */
+.citations {
+  margin-top: 14px;
+}
+
+
+/* Citation heading. */
+.citations h3 {
+  margin: 0 0 10px;
+  color: #475569;
+  font-size: 13px;
+}
+
+
+/* Individual citation. */
+.citation-card {
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+
+/* Citation metadata row. */
+.citation-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: #475569;
+  font-size: 12px;
+}
+
+
+/* Citation number. */
+.citation-header strong {
+  color: #2563eb;
+}
+
+
+/* Citation source text. */
+.citation-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   CHAT INPUT
+   ========================================================= */
+
+/* Bottom chat input area. */
+.chat-input-container {
+  display: flex;
+  gap: 12px;
+  padding: 18px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+
+/* Question textarea. */
+.chat-input-container textarea {
+  flex: 1;
+  resize: none;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  outline: none;
+  background: white;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+
+/* Highlight the textarea when focused. */
+.chat-input-container textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+
+/* Send button. */
+.send-button {
+  align-self: stretch;
+  min-width: 100px;
+  background: #2563eb;
+  color: white;
+}
+
+
+/* Send button hover state. */
+.send-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+
+/* Error displayed below the conversation. */
+.chat-error {
+  padding: 10px 18px;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   RESEARCH RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  /* Stack the research heading and button. */
+  .research-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  /* Reduce conversation padding. */
+  .conversation {
+    padding: 18px;
+  }
+
+  /* Stack the input and send button. */
+  .chat-input-container {
+    flex-direction: column;
+  }
+
+  /* Make send button full width. */
+  .send-button {
+    min-height: 44px;
+  }
+
+}
+/* =========================================================
+   SEARCH PAGE
+   ========================================================= */
+
+/* Main search page container. */
+.search-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+
+/* Search page heading. */
+.search-header {
+  margin-bottom: 28px;
+}
+
+
+/* Search page title. */
+.search-header h1 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+
+/* Search page description. */
+.search-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+
+/* =========================================================
+   SEARCH CONTROLS
+   ========================================================= */
+
+/* Container for search input and controls. */
+.search-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 18px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+
+/* Search input. */
+.search-controls input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: white;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+
+/* Highlight search input when focused. */
+.search-controls input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+
+/* Result-limit dropdown. */
+.search-controls select {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+
+/* Search button. */
+.search-button {
+  min-width: 100px;
+  background: #2563eb;
+  color: white;
+}
+
+
+/* Search button hover state. */
+.search-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+
+/* =========================================================
+   SEARCH RESULTS
+   ========================================================= */
+
+/* Search results container. */
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+
+/* Search results heading. */
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+/* Search results heading title. */
+.search-results-header h2 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+
+/* Search results summary. */
+.search-results-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+
+/* Container for result cards. */
+.search-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+
+/* Individual search result. */
+.search-result-card {
+  padding: 20px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+/* Highlight a result when the mouse is over it. */
+.search-result-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.06);
+}
+
+
+/* Result number and score row. */
+.search-result-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+
+/* Result number. */
+.result-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+/* Retrieval score. */
+.result-score {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* Source/page/chunk metadata. */
+.result-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+
+/* Individual metadata badge. */
+.result-metadata span {
+  padding: 5px 9px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+
+/* Retrieved text. */
+.result-text {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+
+/* =========================================================
+   SEARCH EMPTY / ERROR STATES
+   ========================================================= */
+
+/* Empty result state. */
+.search-empty {
+  padding: 50px 20px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+}
+
+
+/* Empty state heading. */
+.search-empty h3 {
+  margin: 0 0 8px;
+  color: #334155;
+}
+
+
+/* Empty state description. */
+.search-empty p {
+  margin: 0;
+  color: #64748b;
+}
+
+
+/* Search error message. */
+.search-error {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   SEARCH RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  /* Stack search controls on smaller screens. */
+  .search-controls {
+    flex-direction: column;
+  }
+
+  /* Make the dropdown full width. */
+  .search-controls select {
+    width: 100%;
+  }
+
+  /* Make the search button full width. */
+  .search-button {
+    width: 100%;
+  }
+
+}
+/* ============================================================
+   CONVERSATIONS PAGE
+   ============================================================ */
+
+.conversations-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.conversations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.conversations-header h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  color: #0f172a;
+}
+
+.conversations-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.conversation-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.conversation-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.conversation-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #2563eb;
+}
+
+.conversation-card-header h2 {
+  margin: 0 0 8px;
+  font-size: 21px;
+  color: #0f172a;
+}
+
+.conversation-session-id {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  word-break: break-all;
+}
+
+.conversation-primary-button {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.conversation-primary-button:hover {
+  background: #1d4ed8;
+}
+
+.conversation-delete-button {
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: #ffffff;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.conversation-delete-button:hover {
+  background: #fef2f2;
+}
+
+.conversation-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 22px 26px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.conversation-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.conversation-stat span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.conversation-stat strong {
+  font-size: 24px;
+  color: #0f172a;
+}
+
+.conversation-history {
+  padding: 26px;
+}
+
+.conversation-history-header {
+  margin-bottom: 20px;
+}
+
+.conversation-history-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.conversation-message {
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 12px;
+}
+
+.conversation-message:last-child {
+  margin-bottom: 0;
+}
+
+.conversation-user-message {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.conversation-assistant-message {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.conversation-message-role {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.conversation-message-content {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  color: #1e293b;
+}
+
+.conversation-citations {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.conversation-citations > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.conversation-citation {
+  display: inline-block;
+  margin: 3px 6px 3px 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.conversation-empty {
+  padding: 70px 30px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.conversation-empty-icon {
+  margin-bottom: 15px;
+  font-size: 40px;
+}
+
+.conversation-empty h2 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.conversation-empty p {
+  margin: 0 0 22px;
+  color: #64748b;
+}
+
+.conversation-no-messages {
+  padding: 30px;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.conversation-no-messages p {
+  margin: 0 0 16px;
+  color: #64748b;
+}
+
+.conversation-error {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+
+/* ============================================================
+   CONVERSATIONS RESPONSIVE DESIGN
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+  .conversations-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .conversation-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .conversation-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .conversation-primary-button,
+  .conversation-delete-button {
+    width: 100%;
+  }
+
+}
+/* ============================================================
+   EVALUATION PAGE
+   ============================================================ */
+
+.evaluation-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.evaluation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.evaluation-header h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  color: #0f172a;
+}
+
+.evaluation-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.evaluation-run-button {
+  border: none;
+  border-radius: 9px;
+  padding: 11px 18px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.evaluation-run-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.evaluation-run-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.evaluation-intro,
+.evaluation-loading {
+  padding: 70px 30px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.evaluation-intro-icon {
+  margin-bottom: 15px;
+  font-size: 42px;
+}
+
+.evaluation-intro h2,
+.evaluation-loading h2 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+
+.evaluation-intro p,
+.evaluation-loading p {
+  max-width: 650px;
+  margin: 0 auto 12px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.evaluation-intro-note {
+  font-size: 13px;
+}
+
+.evaluation-spinner {
+  margin-bottom: 15px;
+  font-size: 36px;
+}
+
+.evaluation-error {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 9px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.evaluation-results {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.evaluation-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.evaluation-overview-card {
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.evaluation-overview-card span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.evaluation-overview-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 28px;
+  color: #0f172a;
+}
+
+.evaluation-overview-card small {
+  color: #94a3b8;
+}
+
+.evaluation-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.evaluation-section-header {
+  padding: 22px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.evaluation-section-header h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  color: #0f172a;
+}
+
+.evaluation-section-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.evaluation-table-wrapper {
+  overflow-x: auto;
+}
+
+.evaluation-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.evaluation-table th,
+.evaluation-table td {
+  padding: 15px 20px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.evaluation-table th {
+  background: #f8fafc;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.evaluation-table td {
+  font-size: 14px;
+  color: #334155;
+}
+
+.evaluation-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.evaluation-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.evaluation-latency-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 24px;
+}
+
+.evaluation-latency-card {
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.evaluation-latency-card span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.evaluation-latency-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.evaluation-latency-card small {
+  color: #94a3b8;
+}
+
+.evaluation-config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 24px;
+}
+
+.evaluation-config-grid > div {
+  padding: 16px;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.evaluation-config-grid span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.evaluation-config-grid strong {
+  color: #0f172a;
+}
+
+
+/* ============================================================
+   EVALUATION RESPONSIVE DESIGN
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+  .evaluation-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .evaluation-latency-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .evaluation-config-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+@media (max-width: 700px) {
+
+  .evaluation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .evaluation-run-button {
+    width: 100%;
+  }
+
+  .evaluation-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-latency-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
