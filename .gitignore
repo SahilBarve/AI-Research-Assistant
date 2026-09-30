@@ -24,3 +24,6 @@ uploads/
 
 # Local Vector Database
 qdrant_storage/
+
+# Qdrant snapshots
+*.snapshot

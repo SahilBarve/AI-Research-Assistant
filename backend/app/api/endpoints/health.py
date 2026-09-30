@@ -33,14 +33,19 @@ def system_health_check(db: Session = Depends(get_db)):
     qdrant_ok = vector_repository.collection_exists()
 
     # Check Ollama local service HTTP port
+       
+        # Check Ollama local service HTTP port
     ollama_ok = False
     try:
-        resp = requests.get("http://localhost:11434/api/tags", timeout=2)
+        settings = get_settings()
+        ollama_url = f"{settings.ollama_base_url}/api/tags"
+
+        resp = requests.get(ollama_url, timeout=2)
+
         if resp.status_code == 200:
             ollama_ok = True
     except Exception:
         pass
-
     # Aggregate overall status
     is_healthy = postgres_ok and qdrant_ok and ollama_ok
 

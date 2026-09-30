@@ -1,0 +1,15 @@
+﻿.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+logs/
+uploads/
+*.log
+all_chunks.txt
+structure.txt
+evaluation/
+tests/
+.vscode/
+.git/
+.gitignore

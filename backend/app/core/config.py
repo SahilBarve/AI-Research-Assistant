@@ -112,6 +112,10 @@ class Settings(BaseSettings):
         default="qwen2.5:3b"
     )
 
+    ollama_base_url: str = Field(
+        default="http://localhost:11434"
+    )
+
     # =========================================================
     # PYDANTIC SETTINGS
     # =========================================================
@@ -133,3 +137,4 @@ def get_settings() -> Settings:
     """
 
     return Settings()
+

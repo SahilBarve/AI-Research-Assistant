@@ -1,3 +1,4 @@
+
 """
 LLM Service.
 
@@ -5,7 +6,7 @@ Responsible for sending the user query, conversation history,
 and retrieved context to the local Ollama LLM.
 """
 
-from ollama import chat
+from ollama import Client
 
 
 class LLMService:
@@ -17,12 +18,22 @@ class LLMService:
     def __init__(
         self,
         model: str = "qwen2.5:3b",
+        base_url: str = "http://localhost:11434",
     ):
         """
         Initialize the LLM service.
+
+        Args:
+            model: Ollama model name.
+            base_url: URL of the Ollama server.
         """
 
         self.model = model
+        self.base_url = base_url
+
+        self.client = Client(
+            host=self.base_url
+        )
 
     # =========================================================
     # GENERATE ANSWER
@@ -111,7 +122,7 @@ ANSWER:
         # Send request to Ollama
         # -----------------------------------------------------
 
-        response = chat(
+        response = self.client.chat(
             model=self.model,
             messages=[
                 {
@@ -132,3 +143,4 @@ ANSWER:
         ].strip()
 
         return answer
+

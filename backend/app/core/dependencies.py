@@ -9,6 +9,8 @@ components so that API endpoints do not need to manually construct
 repositories or services.
 """
 
+from app.core.config import get_settings
+
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
 from app.repositories.bm25_repository import BM25Repository
@@ -23,6 +25,13 @@ from app.services.document_service import DocumentService
 from app.services.conversation_memory import ConversationMemory
 from app.services.citation_validator import CitationValidator
 from app.services.chat_service import ChatService
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+settings = get_settings()
 
 
 # ============================================================
@@ -48,7 +57,10 @@ reranker = RerankerService()
 
 context_builder = ContextBuilder()
 
-llm_service = LLMService()
+llm_service = LLMService(
+    model=settings.llm_model,
+    base_url=settings.ollama_base_url,
+)
 
 conversation_memory = ConversationMemory()
 
