@@ -1,14 +1,13 @@
-# Name shown in the GitHub Actions tab.
+# Name of the workflow shown in GitHub Actions.
 name: CI
 
-# Decide when GitHub should run this workflow.
+# Run the workflow when code is pushed to main
+# or when a pull request targets main.
 on:
-  # Run CI whenever code is pushed to main.
   push:
     branches:
       - main
 
-  # Also run CI when a pull request targets main.
   pull_request:
     branches:
       - main
@@ -16,54 +15,52 @@ on:
 # Jobs are the individual tasks performed by GitHub Actions.
 jobs:
 
-  # --------------------------------------------------
+  # ==================================================
   # Backend tests
-  # --------------------------------------------------
+  # ==================================================
   backend-tests:
     name: Backend Tests
-
-    # GitHub provides a fresh Ubuntu machine for this job.
     runs-on: ubuntu-latest
 
     steps:
 
-      # Download our repository onto the GitHub machine.
+      # Download the repository onto the GitHub runner.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Python.
+      # Install the Python version used by our Docker backend.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # Install backend dependencies.
+      # Install backend dependencies and the testing tool.
       - name: Install backend dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest
 
-      # Run the backend test suite.
+      # Run the complete backend test suite.
       - name: Run backend tests
         working-directory: backend
-        run: pytest -v
+        run: python -m pytest -v
 
-  # --------------------------------------------------
+  # ==================================================
   # Frontend build
-  # --------------------------------------------------
+  # ==================================================
   frontend-build:
     name: Frontend Build
-
     runs-on: ubuntu-latest
 
     steps:
 
-      # Download our repository.
+      # Download the repository onto the GitHub runner.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Node.js.
+      # Install Node.js for the React/Vite frontend.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -71,7 +68,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Install exact frontend dependencies.
+      # Install the exact frontend dependencies from package-lock.json.
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -81,17 +78,16 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-  # --------------------------------------------------
+  # ==================================================
   # Docker image builds
-  # --------------------------------------------------
+  # ==================================================
   docker-build:
     name: Docker Build
-
     runs-on: ubuntu-latest
 
     steps:
 
-      # Download our repository.
+      # Download the repository onto the GitHub runner.
       - name: Checkout repository
         uses: actions/checkout@v4
 
