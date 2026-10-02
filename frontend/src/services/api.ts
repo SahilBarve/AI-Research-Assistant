@@ -1,5 +1,6 @@
 // Base URL of our FastAPI backend.
-const API_BASE_URL = 'http://localhost:8000/api/v1'
+// Using a relative path allows the frontend to work locally and on AWS.
+const API_BASE_URL = '/api/v1'
 
 
 // ============================================================
@@ -219,6 +220,8 @@ export async function getSearchStats() {
 
   return response.json()
 }
+
+
 // Run the retrieval evaluation benchmark.
 export async function runEvaluation() {
   const response = await fetch(`${API_BASE_URL}/evaluation/run`)
