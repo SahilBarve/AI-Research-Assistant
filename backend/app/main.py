@@ -88,6 +88,10 @@ async def lifespan(app: FastAPI):
         "Starting AI Research Assistant..."
     )
 
+    # Ensure the Qdrant collection exists before using it.
+    vector_repository.create_collection()
+
+    # Rebuild BM25 from the existing Qdrant data.
     rebuild_bm25_index()
 
     logger.info(
