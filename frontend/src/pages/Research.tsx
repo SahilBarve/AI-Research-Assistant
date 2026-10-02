@@ -8,7 +8,15 @@ import {
   deleteConversation,
 } from '../services/api'
 
+// Generate a session ID that works across different browsers.
+const createSessionId = (): string => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
 
+  // Fallback for browsers/environments without crypto.randomUUID.
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
 // ============================================================
 // TYPES
 // ============================================================
@@ -66,7 +74,7 @@ function Research() {
     }
 
     // Generate a unique ID for a new conversation.
-    const newSessionId = crypto.randomUUID()
+    const newSessionId = createSessionId()
 
     localStorage.setItem(
       'research_session_id',
@@ -222,7 +230,7 @@ function Research() {
     }
 
     // Create a completely new session.
-    const newSessionId = crypto.randomUUID()
+    const newSessionId = createSessionId()
 
     localStorage.setItem(
       'research_session_id',
