@@ -1,0 +1,39 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    # Only deploy when the CI workflow completed successfully.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # Connect to the EC2 instance using the SSH private key
+      # stored securely in GitHub Secrets.
+      - name: Deploy application to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Go to the project directory on EC2.
+            cd ~/AI-Research-Assistant
+
+            # Get the latest code from GitHub.
+            git pull origin main
+
+            # Rebuild and restart the application.
+            docker compose up -d --build
+
+            # Show the running containers.
+            docker ps
